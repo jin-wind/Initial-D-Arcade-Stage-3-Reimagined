@@ -22,15 +22,15 @@ public sealed class Idas3SceneSmoke : MonoBehaviour
     private bool perfCheck, perfLegend, perfNight, perfWet;
     private bool perfFullDrive,perfReverse;
     private readonly float[] driveTelemetry=new float[12];
-    [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)] private static extern int Idas3SceneCourseDriveDiagnostic(int enabled,[Out] float[] values,int count);
+    [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)] private static extern int Idas3SceneCourseDriveDiagnostic(int enabled,[Out] float[] values,int count);
     private bool rivalCheck, rivalPostResult, rivalFastForward, retireCheck;
     private int rivalRecord;
     private Idas3RivalAudioProbe rivalAudio;
     private readonly List<RivalObservation> rivalObservations=new List<RivalObservation>();
     private int perfCourse=3,perfWarmup=180,perfFrames=600,perfMainRenders,perfAllRenders;
     private int PerformanceCourse => (host.Status.flags&IdasSpecialStageEnnaCourse.SceneFlag)!=0 ? IdasSpecialStageEnnaCourse.CourseId(host.Status.flags) : (host.Status.flags&16384u)!=0 ? Idas8HakoneCourse.CourseId(host.Status.flags) : host.Status.course;
-    [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)] private static extern int Idas3SceneModeFlowValue(int field);
-    [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)] private static extern int Idas3SceneReplayCaptureDiagnostic(int enabled);
+    [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)] private static extern int Idas3SceneModeFlowValue(int field);
+    [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)] private static extern int Idas3SceneReplayCaptureDiagnostic(int enabled);
     private Camera perfMainCamera;
     private Vector3 diagnosticPoseTarget;
     private ulong introFirstRenderedFrame;
@@ -79,7 +79,7 @@ public sealed class Idas3SceneSmoke : MonoBehaviour
         public uint legendActive,choiceVisible,choiceKind,selectedIndex,musicCue,musicPlaying;
         public ulong musicSamplePosition;
     }
-    [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)]
+    [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)]
     private static extern int Idas3SceneGetRivalStatus(ref RivalStatus status);
     private RivalStatus ReadRivalStatus(){
         var result=new RivalStatus{size=(uint)Marshal.SizeOf<RivalStatus>()};

@@ -165,7 +165,7 @@ public sealed partial class Idas8HakoneCourse : MonoBehaviour
                     else PairedRoadsideTriangles+=paired;
                 }
                 var mesh=new Mesh{name="Hakone original shape "+shape,indexFormat=IndexFormat.UInt32};
-                mesh.vertices=vertices; mesh.normals=normals; mesh.uv=uv; mesh.uv2=uv2; mesh.colors32=colors; if(treeFaces!=null)mesh.uv3=treeFaces; mesh.triangles=indices; mesh.RecalculateBounds(); mesh.UploadMeshData(true);
+                mesh.vertices=vertices; mesh.normals=normals; mesh.uv=uv; mesh.uv2=uv2; mesh.colors32=colors; if(treeFaces!=null)mesh.uv3=treeFaces; else if(Idas3MetalSceneGeometry.IsRequired)mesh.uv3=new Vector2[vertices.Length]; mesh.triangles=indices; Idas3MetalSceneGeometry.PrepareImportedMesh(mesh); mesh.RecalculateBounds(); mesh.UploadMeshData(true);
                 sourceMeshes[shape]=mesh; sourceMaterials[shape]=mat;
                 if(data.materials[mat].kind=="tree" || data.materials[mat].kind=="gallery") continue;
                 var go=new GameObject(materials[mat].name+" "+shape); go.transform.SetParent(transform,false);

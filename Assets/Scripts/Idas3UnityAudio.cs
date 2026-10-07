@@ -22,11 +22,11 @@ public sealed class Idas3UnityAudio : MonoBehaviour
         public int minimumFrames, maximumFrames, lastFrames;
         public int deviceSampleRate, channels;
     }
-    [DllImport("Idas3Unity", CallingConvention = CallingConvention.Cdecl)]
+    [DllImport(Idas3Native.Library, CallingConvention = CallingConvention.Cdecl)]
     private static extern int Idas3UnityReadAudioDevice([Out] float[] output, int frameCount, int channels, int sampleRate);
-    [DllImport("Idas3Unity", CallingConvention = CallingConvention.Cdecl)]
+    [DllImport(Idas3Native.Library, CallingConvention = CallingConvention.Cdecl)]
     private static extern void Idas3UnitySetAudioRunning(int running);
-    [DllImport("Idas3Unity", CallingConvention = CallingConvention.Cdecl)]
+    [DllImport(Idas3Native.Library, CallingConvention = CallingConvention.Cdecl)]
     private static extern int Idas3UnityGetAudioStatistics(ref Statistics statistics);
 
     public static Statistics ReadStatistics()

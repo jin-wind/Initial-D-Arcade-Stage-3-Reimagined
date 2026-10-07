@@ -36,10 +36,15 @@ public static class Idas3UpdateCache
         [DataMember] public int parentId;
         [DataMember] public string parentStartTicks;
     }
+#if !UNITY_IOS || UNITY_EDITOR
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern SafeFileHandle CreateFile(string path, uint access, uint share, IntPtr security, uint mode, uint flags, IntPtr template);
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern uint GetLongPathName(string shortPath, StringBuilder longPath, uint size);
+#else
+    private static SafeFileHandle CreateFile(string path,uint access,uint share,IntPtr security,uint mode,uint flags,IntPtr template)=>throw new PlatformNotSupportedException("Desktop updater is unavailable on iOS.");
+    private static uint GetLongPathName(string shortPath,StringBuilder longPath,uint size)=>throw new PlatformNotSupportedException("Desktop updater is unavailable on iOS.");
+#endif
 
     private static void NoLinks(string path) {
         for (string p = Path.GetFullPath(path); !string.IsNullOrEmpty(p); p = Path.GetDirectoryName(p)) {

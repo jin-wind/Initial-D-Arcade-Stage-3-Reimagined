@@ -1,0 +1,139 @@
+# All artifacts use this workflow's source commit and full game release label.
+# Device output is unsigned until a distribution signing arrangement is added.
+name: Mobile builds
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [mobile-ci]
+    tags: ['mobile-v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    uses: ./.github/workflows/android-apk.yml
+    secrets: inherit
+
+  ios:
+    name: iOS ${{ matrix.sdk }}
+    runs-on: macos-26
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - sdk: iphonesimulator
+            method: Idas3IOSBuild.BuildSimulatorChecked
+          - sdk: iphoneos
+            method: Idas3IOSBuild.BuildDeviceChecked
+    env:
+      UNITY_VERSION: 6000.6.4f1
+      IDAS3_IOS_OUTPUT: Builds/iOS-${{ matrix.sdk }}
+      JOBS: 2
+    steps:
+      - name: Check Unity secrets
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        run: |
+          missing=""
+          [ -n "$UNITY_LICENSE" ] || missing="$missing UNITY_LICENSE"
+          [ -n "$UNITY_EMAIL" ] || missing="$missing UNITY_EMAIL"
+          [ -n "$UNITY_PASSWORD" ] || missing="$missing UNITY_PASSWORD"
+          if [ -n "$missing" ]; then echo "::error::Missing repository secrets:$missing"; exit 1; fi
+
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Check Apple build tools
+        run: |
+          uname -m
+          df -h .
+          xcodebuild -version
+          xcrun --sdk "${{ matrix.sdk }}" --show-sdk-version
+          command -v cmake
+          command -v pwsh
+          # Both the Unity export and native archive are ARM64.
+          test "$(uname -m)" = arm64
+
+      - name: Refuse ROM files
+        run: |
+          found=$(find . -path ./.git -prune -o -type f \( -iname '*.chd' -o -iname '*.cue' -o -iname 'gds-0033*' \) -print)
+          if [ -n "$found" ]; then echo "::error::ROM-like files in the checkout:"; echo "$found"; exit 1; fi
+
+      - name: Build native archive and check complete linkage
+        run: bash Tools/build-native-ios.sh "${{ matrix.sdk }}"
+
+      - name: Stage and verify game data
+        shell: pwsh
+        run: |
+          ./Tools/Stage-GameData.ps1 -DestinationRoot Assets/StreamingAssets/IDAS3 -ManifestPath Staging/android-game-data-manifest.json
+          & './Tools/Stage Android Assets.ps1'
+
+      - name: Export checked Unity Xcode project
+        uses: game-ci/unity-builder@v5.0.1
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          unityVersion: ${{ env.UNITY_VERSION }}
+          targetPlatform: iOS
+          buildMethod: ${{ matrix.method }}
+          customParameters: -job-worker-count 2
+          versioning: None
+          allowDirtyBuild: true
+          cacheUnityInstallationOnMac: true
+
+      - name: Build and verify Apple package
+        run: |
+          set -o pipefail
+          mkdir -p Logs
+          xcodebuild -project "$IDAS3_IOS_OUTPUT/Unity-iPhone.xcodeproj" \
+            -target Unity-iPhone -configuration Release -sdk "${{ matrix.sdk }}" \
+            -arch arm64 -jobs 2 CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            "CONFIGURATION_BUILD_DIR=$GITHUB_WORKSPACE/Builds/iOS-Products/${{ matrix.sdk }}" \
+            build 2>&1 | tee Logs/ios-${{ matrix.sdk }}-xcode.log
+          app="Builds/iOS-Products/${{ matrix.sdk }}/InitialDUnity.app"
+          version=$(sed -n 's/^  bundleVersion: //p' ProjectSettings/ProjectSettings.asset)
+          test -n "$version"
+          python3 "Tools/Verify iOS App.py" "$app" --sdk "${{ matrix.sdk }}" --version "$version"
+          mkdir -p Builds/iOS-Artifacts
+          if [ "${{ matrix.sdk }}" = iphonesimulator ]; then
+            # ARM64 Simulator apps need an ad-hoc signature, not a device profile.
+            codesign --force --deep --sign - "$app"
+            codesign --verify --deep --strict "$app"
+            ditto -c -k --keepParent "$app" Builds/iOS-Artifacts/InitialDUnity-Simulator.zip
+          else
+            mkdir -p Builds/iOS-Payload/Payload
+            cp -cR "$app" Builds/iOS-Payload/Payload/
+            ditto -c -k Builds/iOS-Payload Builds/iOS-Artifacts/InitialDUnity-iPhone-unsigned.ipa
+          fi
+          cp "${app%.app}.verification.json" Builds/iOS-Artifacts/
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: InitialDUnity-${{ matrix.sdk }}-${{ github.sha }}
+          path: Builds/iOS-Artifacts/
+          compression-level: 0
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ios-${{ matrix.sdk }}-logs-${{ github.sha }}
+          path: |
+            Logs/
+            artifacts/
+          retention-days: 7
+          if-no-files-found: ignore

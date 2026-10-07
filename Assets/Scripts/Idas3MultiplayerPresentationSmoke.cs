@@ -27,13 +27,13 @@ public sealed class Idas3MultiplayerPresentationSmoke : MonoBehaviour
     private readonly List<CaptureReport> captures=new List<CaptureReport>();
     [Serializable,StructLayout(LayoutKind.Sequential,Pack=8)] private struct AuraStatus
     {public uint size,version,level,streak,eligible,submittedRanges,colorArgb,sourceFrame;}
-    [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)]
+    [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)]
     private static extern int Idas3MultiplayerGetAuraStatus(int side,ref AuraStatus status);
-    [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)]
+    [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)]
     private static extern int Idas3SceneGetPreRaceStatus(ref Idas3PreRaceSmoke.PreRaceStatus status);
-    [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)]
+    [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)]
     private static extern int Idas3MultiplayerDiagnosticFinish(ulong ticks60);
-    [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)]
+    [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)]
     private static extern int Idas3SceneCopyPreRaceName(int side,StringBuilder destination,int capacity);
     [Serializable] private sealed class CaptureReport
     {

@@ -11,8 +11,8 @@ public sealed class Idas3AttractOptionsSmoke : MonoBehaviour
 {
     private static bool ReportsCheck => Array.IndexOf(Environment.GetCommandLineArgs(),"-idas3-reports-check")>=0;
     private static bool PointerCheck => Array.IndexOf(Environment.GetCommandLineArgs(),"-idas3-pointer-live-check")>=0;
-    [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)] private static extern int Idas3SceneModeFlowFixture(int scene);
-    [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)] private static extern int Idas3SceneModeFlowValue(int field);
+    [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)] private static extern int Idas3SceneModeFlowFixture(int scene);
+    [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)] private static extern int Idas3SceneModeFlowValue(int field);
     private static string pendingRoot;
     private static Idas3AttractOptionsSmoke active;
     private Idas3SceneGame host;

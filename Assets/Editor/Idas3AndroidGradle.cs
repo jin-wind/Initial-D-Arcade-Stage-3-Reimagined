@@ -1,3 +1,4 @@
+#if UNITY_ANDROID
 using System;
 using System.IO;
 using System.Text;
@@ -55,3 +56,5 @@ public sealed class Idas3AndroidGradle : IPostGenerateGradleAndroidProject
             : content.TrimEnd() + Environment.NewLine + name + "=" + value + Environment.NewLine;
     }
 }
+
+#endif

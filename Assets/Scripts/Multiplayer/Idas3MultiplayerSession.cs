@@ -198,7 +198,7 @@ namespace Idas3.Multiplayer
         public string CourseDrawText => HasCourseDraw?"RANDOM SELECTION: "+(CourseWinnerSlot==(IsHost?0:1)?Clean(transport?.LocalName):remoteName)+"'S PICK":"Each driver's course pick has a 50% chance.";
         public int Course => SelectedChoice.Course;
         public int LocalCar { get; private set; }
-        public int TransportIndex { get; private set; }
+        public int TransportIndex { get; private set; } = Idas3PlatformPaths.IsIOS ? 1 : 0;
         public bool Reverse => SelectedChoice.Reverse;
         public bool Wet => SelectedChoice.Wet;
         public bool Night => SelectedChoice.Night;
@@ -239,8 +239,8 @@ namespace Idas3.Multiplayer
             impairment=new Idas3NetworkImpairment(()=>Now);
             LocalCar=Mathf.Clamp(selectedCar,0,34);
             records=new Idas3MultiplayerRecords(saveRoot??Path.Combine(Application.persistentDataPath,"userdata-unity-scene"));
-            // There is no Steam client on Android; LAN DIRECT is the only working transport.
-            if(Idas3PlatformPaths.IsAndroid)TransportIndex=1;
+            // There is no Steam client on Android or iOS; LAN DIRECT is the only working transport.
+            if(Idas3PlatformPaths.IsMobile)TransportIndex=1;
         }
         public void OpenMenu()
         {
@@ -263,7 +263,7 @@ namespace Idas3.Multiplayer
         }
         public void SelectTransport(int index)
         {
-            if (nativeRace || DisconnectedFinish || InLobby || Busy || index < 0 || index > 1 || index == 0 && Idas3PlatformPaths.IsAndroid) return;
+            if (nativeRace || DisconnectedFinish || InLobby || Busy || index < 0 || index > 1 || index == 0 && Idas3PlatformPaths.IsMobile) return;
             if (TransportIndex == index && Available) return;
             TransportIndex = index;
             SetTransport(index == 0 ? (IIdas3Transport)new Idas3SteamTransport() : new Idas3TcpTransport()); OpenMenu();
@@ -372,7 +372,7 @@ namespace Idas3.Multiplayer
             // the same wire protocol and simulation contract. Bump this
             // canonical identity whenever the authoritative protocol or rules
             // change; platform-specific packaging cannot block cross-play.
-            string complete="idas3-mp10-cross-platform-v1-"+Application.version;
+            string complete="idas3-mp10-cross-platform-v1-"+Idas3PlatformPaths.ApplicationVersion;
             for(int course=11;course<Idas3CourseCatalog.Count;++course)
                 complete+="-"+course+"-"+SpecialStageFingerprint(Idas3PlatformPaths.RuntimePackPath(Idas3CourseCatalog.Packs[course-9]),Idas3CourseCatalog.Slugs[course-9],course>=12&&course<=14,course==15);
             complete+=ExperimentalAuthority?"-authority1":"-pose1";
@@ -429,7 +429,7 @@ namespace Idas3.Multiplayer
                         Require(sender!=0 && recipient==0,"Invalid handshake.");
                         string build=r.ReadString();bool host=r.ReadBoolean();string name=r.ReadString();int car=r.ReadInt32();
                         uint helloSerial=r.ReadUInt32();var helloChoice=ReadChoice(r);var helloRecord=ReadRecord(r);var helloCar=Idas3OnlineCar.Read(r,car);
-                        Require(build==Compatibility(),Idas3PlatformPaths.IsAndroid?"Both drivers need the same game version. Install the same APK on both phones.":"Both drivers need the same game build. Copy the complete Current folder to the other PC.");
+                        Require(build==Compatibility(),Idas3PlatformPaths.IsAndroid?"Both drivers need the same game version. Install the same APK on both phones.":Idas3PlatformPaths.IsIOS?"Both drivers need the same game version ("+Idas3PlatformPaths.ApplicationVersion+") on both devices.":"Both drivers need the same game build. Copy the complete Current folder to the other PC.");
                         Require(host!=IsHost && name.Length<=128 && car>=0 && car<35,"Invalid driver handshake.");
                         if (HandshakeComplete) { Require(sender==remoteNonce,"Driver session changed unexpectedly."); break; }
                         remoteNonce=sender;remoteName=Clean(name);RemoteSavedCar=helloCar;remoteCar=car;remoteRecord=helloRecord;remotePlayerSerial=helloSerial;RemoteChoice=helloChoice;HandshakeComplete=true;state="Lobby";
@@ -787,7 +787,7 @@ namespace Idas3.Multiplayer
             if((pose.Finished||pose.TimeUp)&&!finishSent) {
                 finishSent=true;Send(Packet.Finish,w=>{w.Write(raceId);w.Write(pose.raceTicks);w.Write(pose.TimeUp);});
                 if(DisconnectedFinish)return;
-                status="Finished. Waiting for the other driver to finish; "+(Idas3PlatformPaths.IsAndroid?"ONLINE":"F1")+" shows the result.";
+                status="Finished. Waiting for the other driver to finish; "+(Idas3PlatformPaths.IsMobile?"ONLINE":"F1")+" shows the result.";
             }
             if(IsHost&&finishSent&&remoteFinished&&!resultSent) {
                 resultSent=true;int winner=pose.TimeUp?(remoteTimeUp?-1:1):remoteTimeUp?0:pose.raceTicks==remoteFinishTicks?2:pose.raceTicks<remoteFinishTicks?0:1;

@@ -8,7 +8,11 @@ internal static class Idas3Native
     internal static extern int Idas3SceneSaveMenuPointer(float x, float y, int width, int height, int click);
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
     internal static extern int Idas3SceneSetSaveCarLevels([In] uint[] levels, int count);
-    private const string Library = "Idas3Unity";
+    #if UNITY_IOS && !UNITY_EDITOR
+    internal const string Library = "__Internal";
+#else
+    internal const string Library = "Idas3Unity";
+#endif
     [StructLayout(LayoutKind.Sequential, Pack=8)]
     internal struct GhostState {
         public uint size,version,flags,finishTicks6000,car;
@@ -126,7 +130,11 @@ internal static class Idas3Native
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern IntPtr Idas3UnityGetTexture();
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int Idas3UnityGetStatus(ref Status status);
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int Idas3UnityCopyError([Out] byte[] target, int capacity);
+#if !UNITY_IOS || UNITY_EDITOR
     [DllImport("xinput9_1_0.dll", EntryPoint = "XInputGetState")] internal static extern uint ReadGamepad(uint user, out PadState state);
+#else
+    internal static uint ReadGamepad(uint user, out PadState state) { state = default; return 1167; }
+#endif
 
     internal static string Error()
     {

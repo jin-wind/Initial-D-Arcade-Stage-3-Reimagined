@@ -55,8 +55,8 @@ public sealed class Idas3PauseSmoke : MonoBehaviour
         public uint size,version;public float masterGain,musicGain,engineGain,effectsGain;
         public uint cameraView,paused,managedPauseOverlay,reserved;
     }
-    [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)] private static extern int Idas3SceneGetOptions(ref NativeOptions value);
-    [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)] private static extern int Idas3SceneGetPreRaceStatus(ref Idas3PreRaceSmoke.PreRaceStatus value);
+    [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)] private static extern int Idas3SceneGetOptions(ref NativeOptions value);
+    [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)] private static extern int Idas3SceneGetPreRaceStatus(ref Idas3PreRaceSmoke.PreRaceStatus value);
     public static bool Configure(ref string saves){
         var args=Environment.GetCommandLineArgs();int at=Array.IndexOf(args,"-idas3-pause-smoke");if(at<0)return false;
         if(at+1>=args.Length)throw new ArgumentException("Pause diagnostic needs a new output directory.");

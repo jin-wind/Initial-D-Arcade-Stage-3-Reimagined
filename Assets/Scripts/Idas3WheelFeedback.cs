@@ -49,12 +49,21 @@ public sealed class Idas3WheelFeedback : IDisposable
             public uint invert;
             public float deltaSeconds;
         }
+#if !UNITY_IOS || UNITY_EDITOR
         [DllImport(Library,CallingConvention=CallingConvention.Cdecl)] private static extern int Idas3WheelRefreshDevices();
         [DllImport(Library,CallingConvention=CallingConvention.Cdecl)] private static extern int Idas3WheelGetDevice(int index,ref NativeDevice device);
         [DllImport(Library,CallingConvention=CallingConvention.Cdecl)] private static extern int Idas3WheelUpdateCabinet([MarshalAs(UnmanagedType.LPUTF8Str)]string id,ref NativeRaceState state);
         [DllImport(Library,CallingConvention=CallingConvention.Cdecl)] private static extern void Idas3WheelStop();
         [DllImport(Library,CallingConvention=CallingConvention.Cdecl)] private static extern void Idas3WheelShutdown();
         [DllImport(Library,CallingConvention=CallingConvention.Cdecl)] private static extern int Idas3WheelCopyStatus([Out]byte[] text,int capacity);
+#else
+        private static int Idas3WheelRefreshDevices()=>0;
+        private static int Idas3WheelGetDevice(int index,ref NativeDevice device)=>0;
+        private static int Idas3WheelUpdateCabinet(string id,ref NativeRaceState state)=>0;
+        private static void Idas3WheelStop(){}
+        private static void Idas3WheelShutdown(){}
+        private static int Idas3WheelCopyStatus(byte[] text,int capacity)=>0;
+#endif
         private static string Utf8(byte[] bytes){int length=Array.IndexOf(bytes,(byte)0);return Encoding.UTF8.GetString(bytes,0,length<0?bytes.Length:length);}
         public List<DeviceChoice> Discover(){
             int count=Idas3WheelRefreshDevices();if(count<0)throw new InvalidOperationException(Status);

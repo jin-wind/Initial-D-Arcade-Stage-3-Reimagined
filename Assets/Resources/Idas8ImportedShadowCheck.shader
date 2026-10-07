@@ -14,7 +14,7 @@ Shader "Hidden/IDAS3/Imported Shadow Check" {
  SubShader { Pass {
   Cull Off ZWrite Off ZTest Always Blend [_SrcBlend] [_DstBlend]
   HLSLPROGRAM
-  #pragma target 5.0
+  #pragma target 4.5
   #pragma vertex checkVS
   #pragma fragment mainPS
   #define IDAS_IMPORTED_COURSE

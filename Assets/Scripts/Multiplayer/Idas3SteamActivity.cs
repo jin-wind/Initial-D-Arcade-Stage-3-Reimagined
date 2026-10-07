@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+#if !UNITY_IOS
 using Steamworks;
+#endif
 
 namespace Idas3.Multiplayer {
     public static class Idas3LobbyNames {
@@ -26,6 +28,7 @@ namespace Idas3.Multiplayer {
     internal sealed class Idas3SteamActivity : IDisposable {
         internal const int SearchLimit=50;
         internal const uint FreshSeconds=90;
+#if !UNITY_IOS
         const string ScopeKey="idas3.activity",OwnerKey="idas3.owner",StateKey="idas3.state",TimeKey="idas3.seen";
         readonly string scope;
         readonly ulong owner;
@@ -93,6 +96,7 @@ namespace Idas3.Multiplayer {
             });
             var call=SteamMatchmaking.RequestLobbyList();if(call==SteamAPICall_t.Invalid){searching=false;snapshot=default;return;}search.Set(call);
         }
+#endif
         internal struct Sample {internal ulong Owner;internal uint Seen;internal string State;}
         internal static Idas3OnlineActivity Aggregate(IEnumerable<Sample> samples,uint now,bool limited){
             var latest=new Dictionary<ulong,Sample>();
@@ -101,6 +105,10 @@ namespace Idas3.Multiplayer {
             var a=new Idas3OnlineActivity{Available=true,Limited=limited,Online=latest.Count};
             foreach(var s in latest.Values){if(s.State=="queuing")++a.Queuing;else if(s.State=="racing")++a.Racing;}return a;
         }
+#if !UNITY_IOS
         public void Dispose(){if(disposed)return;disposed=true;CancelSearch();create?.Dispose();create=null;if(presence.m_SteamID!=0)SteamMatchmaking.LeaveLobby(presence);presence=default;snapshot=default;}
+#else
+        public void Dispose(){}
+#endif
     }
 }

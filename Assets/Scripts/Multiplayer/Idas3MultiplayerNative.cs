@@ -101,7 +101,7 @@ namespace Idas3.Multiplayer
     }
     internal static class Idas3MultiplayerNative
     {
-        const string Library = "Idas3Unity";
+        const string Library = Idas3Native.Library;
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int Idas3MultiplayerEnableAuthority(ulong race,int remoteAutomatic,int boost);
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int Idas3MultiplayerEnableAuthorityRules(ulong race,int remoteAutomatic,int boost,int collisions);
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int Idas3MultiplayerAuthorityPacket([Out] byte[] bytes,uint capacity);

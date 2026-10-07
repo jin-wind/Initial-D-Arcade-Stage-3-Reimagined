@@ -50,7 +50,7 @@ namespace Idas3.Multiplayer
         public event Action<byte[]> Message;
         public event Action PeerChanged;
         public event Action<string> Error;
-        static string OnlineMenu => Idas3PlatformPaths.IsAndroid ? "ONLINE" : "F1";
+        static string OnlineMenu => Idas3PlatformPaths.IsMobile ? "ONLINE" : "F1";
         string ReadyStatus => discovery != null ? "Looking for rooms on this network…" : "Direct LAN is ready.";
 
         public Idas3TcpTransport(int port = 27035, bool loopbackOnly = false, string name = null)

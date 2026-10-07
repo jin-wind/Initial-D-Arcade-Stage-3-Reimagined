@@ -66,9 +66,15 @@ public sealed class Idas3OnlineControllerSmoke : MonoBehaviour
         public Census[] censuses;
         public EndpointCheck[] endpointChecks;
     }
+#if !UNITY_IOS || UNITY_EDITOR
     [DllImport("xinput1_4.dll",EntryPoint="XInputGetState")] private static extern uint ReadXInput14(uint slot,out Idas3Native.PadState state);
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr window,out uint process);
+#else
+    private static uint ReadXInput14(uint slot,out Idas3Native.PadState state){state=default;return 1167;}
+    private static IntPtr GetForegroundWindow()=>IntPtr.Zero;
+    private static uint GetWindowThreadProcessId(IntPtr window,out uint process){process=0;return 0;}
+#endif
 
     public static bool Configure(ref string saves)
     {

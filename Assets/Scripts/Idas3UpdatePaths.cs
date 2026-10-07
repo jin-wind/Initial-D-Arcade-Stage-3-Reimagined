@@ -10,10 +10,15 @@ using Microsoft.Win32.SafeHandles;
 // must still pass the staging/helper/cache no-link checks.
 public static class Idas3UpdatePaths
 {
+#if !UNITY_IOS || UNITY_EDITOR
     [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true,ExactSpelling=true)]
     private static extern SafeFileHandle CreateFileW(string path,uint access,uint share,IntPtr security,uint mode,uint flags,IntPtr template);
     [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true,ExactSpelling=true)]
     private static extern uint GetFinalPathNameByHandleW(SafeFileHandle file,StringBuilder path,uint capacity,uint flags);
+#else
+    private static SafeFileHandle CreateFileW(string path,uint access,uint share,IntPtr security,uint mode,uint flags,IntPtr template)=>throw new PlatformNotSupportedException("Desktop updater is unavailable on iOS.");
+    private static uint GetFinalPathNameByHandleW(SafeFileHandle file,StringBuilder path,uint capacity,uint flags)=>throw new PlatformNotSupportedException("Desktop updater is unavailable on iOS.");
+#endif
 
     public static string ResolveDirectory(string directory)
     {

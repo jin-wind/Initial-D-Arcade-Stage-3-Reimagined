@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace Idas3.Multiplayer {
     public sealed partial class Idas3MultiplayerSmoke {
-        [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)]
+        [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)]
         static extern int Idas3SharedReadFinish(byte[] bytes,int capacity);
         IEnumerator VerifyEnnaReplay(){
             var folder=Path.Combine(root,"userdata/replays");

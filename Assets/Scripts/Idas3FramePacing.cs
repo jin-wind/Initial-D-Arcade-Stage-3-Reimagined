@@ -109,6 +109,7 @@ public static class Idas3FramePacing
         if(periodRequested){timeEndPeriod(1);periodRequested=false;}
         limit=0;highResolution=false;schedule.Reset();
     }
+#if !UNITY_IOS || UNITY_EDITOR
     [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)]
     private static extern IntPtr CreateWaitableTimerExW(IntPtr attributes,string name,uint flags,uint access);
     [DllImport("kernel32.dll",SetLastError=true)]
@@ -118,4 +119,12 @@ public static class Idas3FramePacing
     [DllImport("kernel32.dll")] [return:MarshalAs(UnmanagedType.Bool)] private static extern bool CloseHandle(IntPtr handle);
     [DllImport("winmm.dll")] private static extern uint timeBeginPeriod(uint milliseconds);
     [DllImport("winmm.dll")] private static extern uint timeEndPeriod(uint milliseconds);
+#else
+    private static IntPtr CreateWaitableTimerExW(IntPtr attributes,string name,uint flags,uint access)=>IntPtr.Zero;
+    private static bool SetWaitableTimer(IntPtr timer,ref long due,int period,IntPtr routine,IntPtr argument,bool resume)=>false;
+    private static uint WaitForSingleObject(IntPtr handle,uint milliseconds)=>0xffffffff;
+    private static bool CloseHandle(IntPtr handle)=>false;
+    private static uint timeBeginPeriod(uint milliseconds)=>1;
+    private static uint timeEndPeriod(uint milliseconds)=>1;
+#endif
 }

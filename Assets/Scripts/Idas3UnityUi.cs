@@ -21,11 +21,11 @@ public sealed class Idas3UnityUi : MonoBehaviour
         public float x, y, u, v; public uint argb, offsetArgb;
     }
     [StructLayout(LayoutKind.Sequential, Pack = 8)] struct TextureInfo { public uint size, width, height, bytes; }
-    [DllImport("Idas3Unity", CallingConvention = CallingConvention.Cdecl)] static extern int Idas3UiGetFrame(ref Frame frame);
-    [DllImport("Idas3Unity", CallingConvention = CallingConvention.Cdecl)] static extern int Idas3UiCopyDraws([Out] Draw[] draws, int capacity);
-    [DllImport("Idas3Unity", CallingConvention = CallingConvention.Cdecl)] static extern int Idas3UiCopyVertices([Out] Vertex[] vertices, int capacity);
-    [DllImport("Idas3Unity", CallingConvention = CallingConvention.Cdecl)] static extern int Idas3UiGetTextureInfo(uint id, ref TextureInfo info);
-    [DllImport("Idas3Unity", CallingConvention = CallingConvention.Cdecl)] static extern int Idas3UiCopyTextureRGBA(uint id, [Out] byte[] rgba, int capacity);
+    [DllImport(Idas3Native.Library, CallingConvention = CallingConvention.Cdecl)] static extern int Idas3UiGetFrame(ref Frame frame);
+    [DllImport(Idas3Native.Library, CallingConvention = CallingConvention.Cdecl)] static extern int Idas3UiCopyDraws([Out] Draw[] draws, int capacity);
+    [DllImport(Idas3Native.Library, CallingConvention = CallingConvention.Cdecl)] static extern int Idas3UiCopyVertices([Out] Vertex[] vertices, int capacity);
+    [DllImport(Idas3Native.Library, CallingConvention = CallingConvention.Cdecl)] static extern int Idas3UiGetTextureInfo(uint id, ref TextureInfo info);
+    [DllImport(Idas3Native.Library, CallingConvention = CallingConvention.Cdecl)] static extern int Idas3UiCopyTextureRGBA(uint id, [Out] byte[] rgba, int capacity);
 
     Camera source, backgroundCamera, foregroundCamera;
     CommandBuffer background, foreground;

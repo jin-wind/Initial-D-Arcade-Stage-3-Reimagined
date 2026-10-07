@@ -9,6 +9,7 @@
 name: Android APK
 
 on:
+  workflow_call:
   workflow_dispatch:
   push:
     branches: [android-ci]
@@ -57,7 +58,7 @@ jobs:
         run: |
           # Licenses are accepted on GitHub's hosted Android runners. Avoid a
           # yes|sdkmanager pipeline: bash pipefail treats yes's SIGPIPE as an error.
-          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION" > /dev/null
+          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION" "build-tools;36.0.0" > /dev/null
 
       - name: Build native plugin (ARM64)
         shell: pwsh
@@ -93,6 +94,8 @@ jobs:
           ls -l "$apk"
           # Re-hashes every packaged runtime file and checks 16 KB ELF alignment.
           python3 "Tools/Verify Android APK.py" "$apk" | tail -n 40
+          "$ANDROID_SDK_ROOT/build-tools/36.0.0/apksigner" verify --verbose "$apk"
+          "$ANDROID_SDK_ROOT/build-tools/36.0.0/zipalign" -c -P 16 -v 4 "$apk" > Builds/Android/zipalign.log
 
       - uses: actions/upload-artifact@v7
         with:
@@ -100,6 +103,7 @@ jobs:
           path: |
             Builds/Android/InitialDUnity.apk
             Builds/Android/InitialDUnity.verification.json
+            Builds/Android/zipalign.log
           compression-level: 0
           retention-days: 30
           if-no-files-found: error

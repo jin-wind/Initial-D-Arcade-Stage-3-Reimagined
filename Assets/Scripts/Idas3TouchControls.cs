@@ -105,7 +105,7 @@ public sealed class Idas3TouchControls : MonoBehaviour
 
     private void OnEnable()
     {
-        if (Application.platform != RuntimePlatform.Android && !Application.isEditor) { enabled = false; return; }
+        if (!Idas3PlatformPaths.IsMobile && !Application.isEditor) { enabled = false; return; }
         instance = this;
         EnhancedTouchSupport.Enable(); enhancedEnabled = true;
     }

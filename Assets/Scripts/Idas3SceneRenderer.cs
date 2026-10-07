@@ -36,9 +36,9 @@ public sealed class Idas3SceneRenderer : MonoBehaviour
     private struct SceneVertex { public Vector3 position, normal; public Vector4 color; public Vector2 uv; public Vector4 offset; }
     [StructLayout(LayoutKind.Sequential, Pack = 8)]
     private struct SceneTexture { public uint width, height; public ulong pixelCount; public IntPtr argb; }
-    [DllImport("Idas3Unity", CallingConvention = CallingConvention.Cdecl)]
+    [DllImport(Idas3Native.Library, CallingConvention = CallingConvention.Cdecl)]
     private static extern int Idas3SceneGetFrame(ref SceneFrame frame);
-    [DllImport("Idas3Unity", CallingConvention = CallingConvention.Cdecl)]
+    [DllImport(Idas3Native.Library, CallingConvention = CallingConvention.Cdecl)]
     private static extern IntPtr Idas3SceneGetGeometryIds(ulong generation, uint rangeCount);
 
     public SceneFrame CurrentFrame { get; private set; }
@@ -62,6 +62,7 @@ public sealed class Idas3SceneRenderer : MonoBehaviour
     private Camera main, mirror, backdrop, canvasClear;
     private Shader sceneShader, directSceneShader, opaqueAlphaDepthShader;
     private bool geometryStageBaseline;
+    private bool metalTriangles;
     private bool rangeReuseBaseline;
     private CommandBuffer opaqueAlphaDepth, mirrorAlphaDepth;
     private readonly List<RangeObject> depthCandidates = new List<RangeObject>();
@@ -126,6 +127,7 @@ public sealed class Idas3SceneRenderer : MonoBehaviour
         public ulong geometryId;
         public RangeObject nextGeometry;
         public NativeArray<SceneVertex> vertexCache;
+        public ComputeBuffer triangleVertices;
         public bool cachedBillboard;
         public SceneRange materialRange;
         public ulong materialTextureGeneration;
@@ -161,6 +163,7 @@ public sealed class Idas3SceneRenderer : MonoBehaviour
         diagnosticViewCullingBaseline = Array.IndexOf(arguments, "-idas3-scene-view-culling-baseline") >= 0;
         if (diagnosticFlipDepth || diagnosticNoCull)
             Debug.Log("IDAS3 scene diagnostics: depthTestFlip=" + diagnosticFlipDepth + ", noCull=" + diagnosticNoCull);
+        metalTriangles = Idas3MetalSceneGeometry.IsRequired;
         sceneShader = Shader.Find("IDAS3/Original Scene Material");
         if (sceneShader == null || !sceneShader.isSupported) throw new InvalidOperationException("Original Unity scene shader is unavailable.");
         directSceneShader = Resources.Load<Shader>("Idas3SceneDirect");
@@ -289,7 +292,7 @@ public sealed class Idas3SceneRenderer : MonoBehaviour
                 var range = *(SceneRange*)IntPtr.Add(frame.ranges, i * 64);
                 uint nativeList = (range.flags & 1) != 0 ? (range.pcw >> 24) & 7 : 0;
                 if (nativeList != list || range.count == 0 || range.viewMask == 0) continue;
-                if ((ulong)range.first + range.count > frame.vertexCount || range.lightScope > 3)
+                if ((ulong)range.first + range.count > frame.vertexCount || range.lightScope > 3 || range.count % 3 != 0)
                     throw new InvalidOperationException("Scene range is outside its vertex/light bounds.");
                 var item = diagnosticPerfBaseline || rangeCacheOff ? GetRangeObject(ActiveMeshCount) : selectedRanges[i] ?? ClaimRangeObject();
                 if(!diagnosticPerfBaseline&&!rangeCacheOff)selectedRanges[i]=item;
@@ -333,6 +336,11 @@ public sealed class Idas3SceneRenderer : MonoBehaviour
                     item.mesh.subMeshCount = 1;
                     item.mesh.SetSubMesh(0, new SubMeshDescriptor(0, (int)range.count, MeshTopology.Triangles), UploadFlags);
                     item.count = (int)range.count;
+                    if (metalTriangles) {
+                        item.triangleVertices?.Release();
+                        item.triangleVertices = new ComputeBuffer(item.count, 64, ComputeBufferType.Structured);
+                        item.materialConfigured = false; item.depthMaterialDirty = true;
+                    }
                 }
                 bool billboard = (range.flags & 4) != 0;
                 var rangeVertices = (SceneVertex*)frame.vertices.ToPointer() + (int)range.first;
@@ -349,6 +357,7 @@ public sealed class Idas3SceneRenderer : MonoBehaviour
                     UnsafeUtility.MemCmp(rangeVertices, NativeArrayUnsafeUtility.GetUnsafeReadOnlyPtr(item.vertexCache), vertexBytes) != 0);
                 if (geometryChanged) {
                     item.mesh.SetVertexBufferData(source, (int)range.first, 0, (int)range.count, 0, UploadFlags);
+                    if (metalTriangles) item.triangleVertices.SetData(source, (int)range.first, 0, (int)range.count);
                     UploadedVertexCount += (int)range.count; ++GeometryUploadCount;
                     var first = source[(int)range.first];
                     Vector3 low = billboard ? first.normal : first.position, high = low;
@@ -381,6 +390,7 @@ public sealed class Idas3SceneRenderer : MonoBehaviour
                 if (diagnosticPerfBaseline || !item.materialConfigured ||
                     item.materialTextureGeneration != textureGeneration || !SameRange(item.materialRange, range)) {
                     ConfigureMaterial(item.material, range, queue); ++MaterialUpdateCount;
+                    if (metalTriangles) item.material.SetBuffer("_IdasTriangleVertices", item.triangleVertices);
                     item.materialRange = range; item.materialQueue = queue; item.materialTextureGeneration = textureGeneration;
                     item.materialConfigured = true; item.depthMaterialDirty = true;
                 }
@@ -394,7 +404,9 @@ public sealed class Idas3SceneRenderer : MonoBehaviour
                 {
                     if (item.depthMaterial == null) { item.depthMaterial = new Material(opaqueAlphaDepthShader); item.depthMaterialDirty = true; }
                     if (diagnosticPerfBaseline || item.depthMaterialDirty) {
-                        item.depthMaterial.CopyPropertiesFromMaterial(item.material); item.depthMaterialDirty = false;
+                        item.depthMaterial.CopyPropertiesFromMaterial(item.material);
+                        if (metalTriangles) item.depthMaterial.SetBuffer("_IdasTriangleVertices", item.triangleVertices);
+                        item.depthMaterialDirty = false;
                     }
                     depthCandidates.Add(item);
                 }
@@ -825,6 +837,7 @@ public sealed class Idas3SceneRenderer : MonoBehaviour
         framesBuffer?.Release(); lightsBuffer?.Release(); fogBuffer?.Release();
         foreach (var item in objects) {
             if (item.vertexCache.IsCreated) item.vertexCache.Dispose();
+            item.triangleVertices?.Release();
             if (item.material != null) Destroy(item.material); if (item.depthMaterial != null) Destroy(item.depthMaterial); if (item.mesh != null) Destroy(item.mesh);
         }
         foreach (var texture in textureCache.Values) if (texture != null) Destroy(texture);

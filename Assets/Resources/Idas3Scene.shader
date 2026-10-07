@@ -30,11 +30,32 @@ Shader "IDAS3/Original Scene Material"
    Blend [_SrcBlend] [_DstBlend], [_SrcBlendAlpha] [_DstBlendAlpha]
    HLSLPROGRAM
    #pragma target 5.0
+   #pragma exclude_renderers metal
    #pragma vertex mainVS
    #pragma geometry showroomGeometry
    #pragma fragment mainPS
    #pragma multi_compile_local _ IDAS_IMPORTED_COURSE
    #pragma multi_compile_instancing
+   #define IDAS3_GEOMETRY_STAGE
+   #include "Idas3SceneCommon.cginc"
+   ENDHLSL
+  }
+ }
+ // Metal has no geometry stage. Reproduce its triangle operations in VS.
+ SubShader {
+  Tags { "RenderType"="Opaque" "DisableBatching"="True" }
+  Pass {
+   AlphaToMask [_AlphaToMask]
+   Cull Off ZWrite [_ZWrite] ZTest [_ZTest]
+   Blend [_SrcBlend] [_DstBlend], [_SrcBlendAlpha] [_DstBlendAlpha]
+   HLSLPROGRAM
+   #pragma target 4.5
+   #pragma only_renderers metal
+   #pragma vertex mainVS
+   #pragma fragment mainPS
+   #pragma multi_compile_local _ IDAS_IMPORTED_COURSE
+   #pragma multi_compile_instancing
+   #define IDAS3_VERTEX_TRIANGLES
    #include "Idas3SceneCommon.cginc"
    ENDHLSL
   }

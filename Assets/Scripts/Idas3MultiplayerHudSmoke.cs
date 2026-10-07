@@ -19,9 +19,9 @@ public sealed class Idas3MultiplayerHudSmoke
         [MarshalAs(UnmanagedType.ByValArray,SizeConst=4)] public uint[] cumulativeSections;
         [MarshalAs(UnmanagedType.ByValArray,SizeConst=4)] public uint[] renderedSectionDurations;
     }
-    [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)]
+    [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)]
     private static extern int Idas3MultiplayerGetHudStatus(ref HudStatus status);
-    [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)]
+    [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)]
     private static extern int Idas3MultiplayerCopyHudText(int side,StringBuilder destination,int capacity);
     [Serializable] private sealed class Capture
     {

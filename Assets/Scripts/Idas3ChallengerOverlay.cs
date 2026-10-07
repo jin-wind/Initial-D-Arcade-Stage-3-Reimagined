@@ -104,7 +104,11 @@ public sealed class Idas3ChallengerOverlay : MonoBehaviour
         }
     }
     [StructLayout(LayoutKind.Sequential)] struct FlashInfo {public uint size;public IntPtr window;public uint flags,count,timeout;}
+#if !UNITY_IOS || UNITY_EDITOR
     [DllImport("user32.dll")] static extern bool FlashWindowEx(ref FlashInfo info);
+#else
+    static bool FlashWindowEx(ref FlashInfo info) => false;
+#endif
     void FlashTaskbar()
     {
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR

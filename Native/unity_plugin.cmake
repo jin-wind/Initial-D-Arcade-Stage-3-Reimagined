@@ -5,7 +5,7 @@ if(TARGET InitialDRemake)
   get_target_property(IDAS3_APP_SOURCES InitialDRemake SOURCES)
   list(FILTER IDAS3_APP_SOURCES EXCLUDE REGEX "(^|/)main\\.cpp$")
 else()
-  # InitialDRemake is intentionally Windows-only. Keep the Android plugin's
+  # InitialDRemake is intentionally Windows-only. Keep the portable plugin's
   # source closure explicit so CMake can configure without creating that host.
   set(IDAS3_APP_SOURCES
     src/renderer.cpp src/ui.cpp src/audio.cpp src/original_audio.cpp
@@ -36,6 +36,33 @@ if(ANDROID)
   set_target_properties(Idas3Unity PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${IDAS3_ANDROID_PLUGIN_OUTPUT_DIRECTORY}"
     OUTPUT_NAME "Idas3Unity")
+elseif(APPLE)
+  foreach(IDAS3_PORTABLE_TARGET IN ITEMS idas3_core idas3_native_assets idas3_original)
+    target_compile_definitions(${IDAS3_PORTABLE_TARGET} PUBLIC IDAS3_PORTABLE_SCENE)
+    target_compile_options(${IDAS3_PORTABLE_TARGET} PRIVATE -ffp-contract=off -fno-fast-math)
+    set_target_properties(${IDAS3_PORTABLE_TARGET} PROPERTIES POSITION_INDEPENDENT_CODE ON)
+  endforeach()
+  if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    add_library(Idas3Unity STATIC src/unity_bridge.cpp src/unity_audio_output.cpp ${IDAS3_APP_SOURCES})
+    set(IDAS3_IOS_PLUGIN_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/Artifacts" CACHE PATH "iOS complete archive output directory")
+    set_target_properties(Idas3Unity PROPERTIES
+      ARCHIVE_OUTPUT_DIRECTORY "${IDAS3_IOS_PLUGIN_OUTPUT_DIRECTORY}/$<CONFIG>"
+      OUTPUT_NAME "Idas3Unity"
+      XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED "NO"
+      XCODE_ATTRIBUTE_ENABLE_BITCODE "NO")
+  else()
+    add_library(Idas3Unity SHARED src/unity_bridge.cpp src/unity_audio_output.cpp ${IDAS3_APP_SOURCES})
+    set(IDAS3_MACOS_PLUGIN_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/../Assets/Plugins/macOS" CACHE PATH "macOS Unity Editor plugin directory")
+    set_target_properties(Idas3Unity PROPERTIES
+      LIBRARY_OUTPUT_DIRECTORY "${IDAS3_MACOS_PLUGIN_OUTPUT_DIRECTORY}/$<0:>"
+      OUTPUT_NAME "Idas3Unity")
+  endif()
+  target_include_directories(Idas3Unity PRIVATE src)
+  target_compile_definitions(Idas3Unity PRIVATE IDAS3_UNITY_PLUGIN IDAS3_PORTABLE_SCENE NOMINMAX)
+  target_compile_options(Idas3Unity PRIVATE -Wall -Wextra -ffp-contract=off -fno-fast-math)
+  # These are direct OBJECT-library dependencies on Apple: CMake includes their
+  # complete object sets in libIdas3Unity.a, not merely usage requirements.
+  target_link_libraries(Idas3Unity PRIVATE idas3_core idas3_native_assets idas3_original)
 else()
   add_library(Idas3Unity SHARED src/unity_bridge.cpp src/unity_audio_output.cpp ${IDAS3_APP_SOURCES})
   target_include_directories(Idas3Unity PRIVATE src)
@@ -52,7 +79,7 @@ else()
     MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
 
-if(NOT ANDROID AND EXISTS "${CMAKE_SOURCE_DIR}/tests/unity_shared_renderer_tests.cpp")
+if(WIN32 AND EXISTS "${CMAKE_SOURCE_DIR}/tests/unity_shared_renderer_tests.cpp")
   add_executable(unity_shared_renderer_tests tests/unity_shared_renderer_tests.cpp src/renderer.cpp)
   target_compile_definitions(unity_shared_renderer_tests PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
   target_compile_options(unity_shared_renderer_tests PRIVATE /W4 /fp:strict)
@@ -60,7 +87,7 @@ if(NOT ANDROID AND EXISTS "${CMAKE_SOURCE_DIR}/tests/unity_shared_renderer_tests
   add_test(NAME unity_shared_renderer COMMAND unity_shared_renderer_tests "${CMAKE_SOURCE_DIR}")
 endif()
 
-if(NOT ANDROID AND EXISTS "${CMAKE_SOURCE_DIR}/tests/unity_bridge_smoke.cpp")
+if(WIN32 AND EXISTS "${CMAKE_SOURCE_DIR}/tests/unity_bridge_smoke.cpp")
   add_executable(unity_bridge_smoke tests/unity_bridge_smoke.cpp)
   target_include_directories(unity_bridge_smoke PRIVATE src)
   target_compile_definitions(unity_bridge_smoke PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)

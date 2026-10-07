@@ -22,8 +22,8 @@ public sealed class Idas3RaceMusicSmoke : MonoBehaviour
     private bool finished,ownsPlayer;
     private double started;
     private readonly List<string> captures=new List<string>();
-    [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)] private static extern int Idas3SceneGetPreRaceStatus(ref Idas3PreRaceSmoke.PreRaceStatus status);
-    [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)] private static extern int Idas3SceneGetRaceAudioStatus(ref Idas3PreRaceSmoke.RaceAudioStatus status);
+    [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)] private static extern int Idas3SceneGetPreRaceStatus(ref Idas3PreRaceSmoke.PreRaceStatus status);
+    [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)] private static extern int Idas3SceneGetRaceAudioStatus(ref Idas3PreRaceSmoke.RaceAudioStatus status);
     [Serializable] private class AudioObservation {public uint phase;public int selected,active;public Idas3PreRaceSmoke.RaceAudioStatus audio;}
     [Serializable] private class CountdownReport {public bool passed;public string scope;public int expected;public AudioObservation[] observations;}
     [Serializable] private class Report {public bool passed,shutdownComplete;public int checks,selectedIndex,activeIndex;public string applicationVersion=Application.version,error,scope;public string[] captures;}

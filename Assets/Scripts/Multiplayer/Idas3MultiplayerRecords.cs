@@ -60,7 +60,7 @@ namespace Idas3.Multiplayer
 
         // The native evaluator owns the original progression arithmetic. This
         // store neither infers levels from win ratio nor awards tuning points.
-        [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)]
+        [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)]
         private static extern int Idas3MultiplayerNextBattleRecord(ref Idas3BattleRecord before,int won,ref Idas3BattleRecord opponent,uint experience,out Idas3BattleRecord after,out uint nextExperience);
         public static Idas3BattleRecord Next(Idas3BattleRecord before,bool won,Idas3BattleRecord opponent,uint experience,out uint nextExperience)
         {

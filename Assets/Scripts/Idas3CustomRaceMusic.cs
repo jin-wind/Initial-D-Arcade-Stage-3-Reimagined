@@ -25,8 +25,8 @@ public sealed class Idas3CustomRaceMusic : MonoBehaviour
     internal string FolderPath {get;private set;}
     internal int SelectedId {get {var t=Idas3SoundRoomCatalog.Find(library.selectedPackaged);if(catalog.State.selectedIndex==-2&&t!=null)return t.id;int i=library.songs.FindIndex(s=>s.file==library.selected);return catalog.State.selectedIndex==-2&&i>=0?FirstId+i:catalog.State.selectedIndex;}}
     internal string SelectedTitle {get {var t=Idas3SoundRoomCatalog.Find(library.selectedPackaged);if(catalog.State.selectedIndex==-2&&t!=null)return t.title;int i=library.songs.FindIndex(s=>s.file==library.selected);return catalog.State.selectedIndex==-2&&i>=0?library.songs[i].title:catalog.SelectedTitle;}}
-    [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)] static extern int Idas3SceneSetCustomRaceMusic([In] short[] samples,int count,int rate,int channels,int context);
-    [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)] static extern int Idas3SceneSetCustomRaceMusicLoop([In] short[] samples,int count,int rate,int channels,int context,int loopStart,int loopEnd);
+    [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)] static extern int Idas3SceneSetCustomRaceMusic([In] short[] samples,int count,int rate,int channels,int context);
+    [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)] static extern int Idas3SceneSetCustomRaceMusicLoop([In] short[] samples,int count,int rate,int channels,int context,int loopStart,int loopEnd);
     internal void Initialize(string saveRoot,Idas3RaceMusicMenu view,Idas3RaceMusicCatalog original,string musicFolder=null){
         folder=Path.Combine(saveRoot,"custom-music");menu=view;catalog=original;
         FolderPath=Path.GetFullPath(musicFolder??Idas3PlatformPaths.CustomMusicRoot);
@@ -182,6 +182,10 @@ public sealed class Idas3CustomRaceMusic : MonoBehaviour
     }
     internal void AddMusic(){
         if(Busy)return;
+        if(Idas3PlatformPaths.IsIOS){
+            menu.SetNotice("iOS music picker is not implemented. Seed MP3, OGG or WAV files in Documents/Custom Music, then refresh.");
+            RefreshFolder(); return;
+        }
         if(Idas3PlatformPaths.IsAndroid){
             menu.SetNotice("Copy MP3, OGG or WAV files into the app's Custom Music folder, then refresh.");
             RefreshFolder();
@@ -270,6 +274,7 @@ public sealed class Idas3CustomRaceMusic : MonoBehaviour
         public IntPtr fileTitle;public int maxFileTitle;public string initialDir;public string title="Add custom race music";public int flags=0x00080000|0x00001000|0x00000800|0x00000008;
         public short fileOffset,extension;public string defaultExtension;public IntPtr customData,hook;public string template;public IntPtr reserved;public int reserved2,flagsEx;
     }
+#if !UNITY_IOS || UNITY_EDITOR
     [DllImport("comdlg32.dll",CharSet=CharSet.Unicode)] static extern bool GetOpenFileNameW([In,Out] OpenFileName data);
     [DllImport("comdlg32.dll")] static extern uint CommDlgExtendedError();
     static string ChooseFile(string initialDirectory){
@@ -277,4 +282,7 @@ public sealed class Idas3CustomRaceMusic : MonoBehaviour
         try{if(GetOpenFileNameW(dialog))return Marshal.PtrToStringUni(dialog.file);if(CommDlgExtendedError()!=0)throw new IOException();return null;}
         finally{Marshal.FreeHGlobal(dialog.file);}
     }
+#else
+    static string ChooseFile(string initialDirectory) => throw new PlatformNotSupportedException("iOS music picker is not implemented.");
+#endif
 }

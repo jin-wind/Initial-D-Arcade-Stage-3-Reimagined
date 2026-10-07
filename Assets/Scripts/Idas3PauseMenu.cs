@@ -19,12 +19,12 @@ public sealed class Idas3PauseMenu : MonoBehaviour
     private static readonly string[] CameraModes={"BUMPER","CHASE","NATURAL"};
     private static readonly string[] ControllerResponses={"FLYCAST GAMEPAD","PREVIOUS","FLYCAST WHEEL"};
     private static readonly int[] FrameCaps={0,30,60,90,120,144,165,240,360},AaValues={0,2,4,8};
-    // Android swaps desktop-only rows (window mode, VSync, Discord, the Windows
+    // Phones swap desktop-only rows (window mode, VSync, Discord, the Windows
     // updater, mute-when-unfocused, keyboard slots, wheel force feedback) for a
     // TOUCH page. Logical row numbers stay the desktop ones; only the drawn
     // position and the tab order change, so Adjust/Activate keep one code path.
     internal static bool? MobileOverride;
-    private static bool Mobile=>MobileOverride??Idas3PlatformPaths.IsAndroid;
+    private static bool Mobile=>MobileOverride??Idas3PlatformPaths.IsMobile;
     private static readonly int[] MobileTabOrder={0,1,2,4,3,5,6,7};
     private static readonly int[] MobileGraphicsRows={1,3,4,5,6,7},MobileGameplayRows={0,1,3,4,5,6,9,10};
     private const int TouchRows=5;
@@ -450,7 +450,7 @@ public sealed class Idas3PauseMenu : MonoBehaviour
             if(AttractOptions)Text(new Rect(750,33,238,27),"BACK TO ATTRACT",small);
             else if(online){Fill(new Rect(728,37,9,9),Red);Text(new Rect(750,29,238,26),"LIVE RACE CONTINUES",button);}
             else Text(new Rect(782,33,198,27),"TAKE A BREATHER",small);
-            Text(new Rect(710,77,295,23),Updates!=null&&Updates.State==Idas3Updates.CheckState.Available?"UPDATE AVAILABLE — GAMEPLAY":"v"+Application.version,small,Updates!=null&&Updates.State==Idas3Updates.CheckState.Available?PromptYellow:Muted);
+            Text(new Rect(710,77,295,23),Updates!=null&&Updates.State==Idas3Updates.CheckState.Available?"UPDATE AVAILABLE — GAMEPLAY":"v"+Idas3PlatformPaths.ApplicationVersion,small,Updates!=null&&Updates.State==Idas3Updates.CheckState.Available?PromptYellow:Muted);
             if(Button(new Rect(984,22,34,35),"×")){Back();if(!IsOpen)return;}
             bool enabled=GUI.enabled;GUI.enabled=enabled&&!Modal&&!BindingInputBlocked;
             if(showOptions)OptionsView();else MainView();

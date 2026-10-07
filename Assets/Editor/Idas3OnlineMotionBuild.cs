@@ -1,3 +1,4 @@
+#if !UNITY_IOS
 using System;
 using System.IO;
 using UnityEditor;
@@ -37,3 +38,4 @@ public static class Idas3OnlineMotionBuild
         File.WriteAllText("Verification/online-motion-20260921/admission-checks.txt","PASS "+checks+" cached admission checks without Steam initialized\n");
     }
 }
+#endif

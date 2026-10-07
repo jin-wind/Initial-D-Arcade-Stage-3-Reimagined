@@ -6,9 +6,9 @@ using UnityEngine;
 
 // Explicit isolated integration test; never uses the player's test-build save.
 public sealed class Idas8HakoneTimeAttackSmoke : MonoBehaviour {
-    [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)] static extern int Idas3SceneHakoneTimeAttackTest([MarshalAs(UnmanagedType.LPUTF8Str)] string pack);
-    [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)] static extern int Idas3SceneModeFlowValue(int field);
-    [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)] static extern int Idas3SceneGetPreRaceStatus(ref Idas3PreRaceSmoke.PreRaceStatus status);
+    [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)] static extern int Idas3SceneHakoneTimeAttackTest([MarshalAs(UnmanagedType.LPUTF8Str)] string pack);
+    [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)] static extern int Idas3SceneModeFlowValue(int field);
+    [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)] static extern int Idas3SceneGetPreRaceStatus(ref Idas3PreRaceSmoke.PreRaceStatus status);
     static bool IntroCameraCheck => Array.IndexOf(Environment.GetCommandLineArgs(),"-imported-intro-camera-check")>=0;
     static bool SpecialStage=>Array.IndexOf(Idas3CourseCatalog.Packs,packName)>=2&&Array.IndexOf(Idas3CourseCatalog.Packs,packName)<=5;
     static string output,packName="HAKONE";static Idas8HakoneTimeAttackSmoke active;

@@ -1,3 +1,4 @@
+#if !UNITY_IOS
 using System;
 using System.IO;
 using Steamworks;
@@ -42,3 +43,5 @@ namespace Idas3.Multiplayer
         }
     }
 }
+
+#endif

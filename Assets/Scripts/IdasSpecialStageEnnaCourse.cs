@@ -19,7 +19,7 @@ public sealed class IdasSpecialStageEnnaCourse : MonoBehaviour
     [Serializable] sealed class ScenerySection { public string model;public int firstNode,lastNode; }
     [Serializable] sealed class Lighting { public float[] ambient,direction,directionalColor,fogColor;public float fogStart,fogEnd;public string sky;public bool skyFollowsCameraXZ; }
     [Serializable] sealed class Manifest { public string geometry;public string[] textureNames,oneSidedTextures; public Tree[] trees;public Spectator[] spectators;public GateSet[] gateSets;public Lighting lighting,wetLighting;public ScenerySection[] scenerySections; }
-    [System.Runtime.InteropServices.DllImport("Idas3Unity",CallingConvention=System.Runtime.InteropServices.CallingConvention.Cdecl)]
+    [System.Runtime.InteropServices.DllImport(Idas3Native.Library,CallingConvention=System.Runtime.InteropServices.CallingConvention.Cdecl)]
     static extern int Idas3SceneImportedSourceNode();
     readonly List<(ScenerySection section,GameObject model)> scenerySections=new List<(ScenerySection,GameObject)>();
     int sceneryNode=-1;
@@ -149,7 +149,7 @@ public sealed class IdasSpecialStageEnnaCourse : MonoBehaviour
                     if((flags&2)!=0||IsPairedTexture(manifest,manifest.textureNames[material])&&!(gateBaseline&&IsPairedGateTexture(manifest.textureNames[material])))
                         for(int v=0;v<nv;++v)faceFlags[v]=Vector2.right;
                     mesh.uv3=faceFlags;
-                    mesh.triangles=indices;mesh.RecalculateBounds();mesh.UploadMeshData(true);
+                    mesh.triangles=indices; Idas3MetalSceneGeometry.PrepareImportedMesh(mesh); mesh.RecalculateBounds(); mesh.UploadMeshData(true);
                     if(flags!=0){
                         int key=material*4+flags;
                         if(!partMaterials.TryGetValue(key,out int variant)){

@@ -65,17 +65,17 @@ public sealed class Idas3ReplayViewer : MonoBehaviour
     static readonly string[] Cameras = { "Chase", "Bumper", "Overhead", "Orbit" };
     string proofDirectory;
     int proofFrame;
-    [DllImport("Idas3Unity", CallingConvention = CallingConvention.Cdecl)] static extern int Idas3SceneInitialize([MarshalAs(UnmanagedType.LPUTF8Str)] string assets, [MarshalAs(UnmanagedType.LPUTF8Str)] string saves, int width, int height);
-    [DllImport("Idas3Unity", CallingConvention = CallingConvention.Cdecl)] static extern int Idas3SceneShutdown();
-    [DllImport("Idas3Unity", CallingConvention = CallingConvention.Cdecl)] static extern int Idas3ReplayStart(int condition, int weather, int night, int car, int manual);
-    [DllImport("Idas3Unity", CallingConvention = CallingConvention.Cdecl)] static extern int Idas3ReplayHud(int elapsed6000, int finish6000, int[] splits, int count, int[] glyphs, int glyphCount);
-    [DllImport("Idas3Unity", CallingConvention = CallingConvention.Cdecl)] static extern int Idas3ReplayAppearance(uint[] values, int count);
-    [DllImport("Idas3Unity", CallingConvention = CallingConvention.Cdecl)] static extern int Idas3ReplayDetailFrame(byte[] values, int count);
-    [DllImport("Idas3Unity", CallingConvention = CallingConvention.Cdecl)] static extern int Idas3ReplayOpponentStart(int car,int enemy,uint[] values,int count);
-    [DllImport("Idas3Unity", CallingConvention = CallingConvention.Cdecl)] static extern int Idas3ReplayOpponentFrame(byte[] values,int count);
-    [DllImport("Idas3Unity", CallingConvention = CallingConvention.Cdecl)] static extern int Idas3SceneSetPreRaceNames([MarshalAs(UnmanagedType.LPUTF8Str)]string player,[MarshalAs(UnmanagedType.LPUTF8Str)]string opponent);
-    [DllImport("Idas3Unity", CallingConvention = CallingConvention.Cdecl)] static extern int Idas3ReplayPose(double tick, float x, float y, float z, float yaw, float speed, int gear, float pitch, int cameraMode, float orbit, int width, int height);
-    [DllImport("Idas3Unity", CallingConvention = CallingConvention.Cdecl)] static extern int Idas3ReplayAudio(double deltaSeconds,int playing,int reset,float master,float engine,float effects);
+    [DllImport(Idas3Native.Library, CallingConvention = CallingConvention.Cdecl)] static extern int Idas3SceneInitialize([MarshalAs(UnmanagedType.LPUTF8Str)] string assets, [MarshalAs(UnmanagedType.LPUTF8Str)] string saves, int width, int height);
+    [DllImport(Idas3Native.Library, CallingConvention = CallingConvention.Cdecl)] static extern int Idas3SceneShutdown();
+    [DllImport(Idas3Native.Library, CallingConvention = CallingConvention.Cdecl)] static extern int Idas3ReplayStart(int condition, int weather, int night, int car, int manual);
+    [DllImport(Idas3Native.Library, CallingConvention = CallingConvention.Cdecl)] static extern int Idas3ReplayHud(int elapsed6000, int finish6000, int[] splits, int count, int[] glyphs, int glyphCount);
+    [DllImport(Idas3Native.Library, CallingConvention = CallingConvention.Cdecl)] static extern int Idas3ReplayAppearance(uint[] values, int count);
+    [DllImport(Idas3Native.Library, CallingConvention = CallingConvention.Cdecl)] static extern int Idas3ReplayDetailFrame(byte[] values, int count);
+    [DllImport(Idas3Native.Library, CallingConvention = CallingConvention.Cdecl)] static extern int Idas3ReplayOpponentStart(int car,int enemy,uint[] values,int count);
+    [DllImport(Idas3Native.Library, CallingConvention = CallingConvention.Cdecl)] static extern int Idas3ReplayOpponentFrame(byte[] values,int count);
+    [DllImport(Idas3Native.Library, CallingConvention = CallingConvention.Cdecl)] static extern int Idas3SceneSetPreRaceNames([MarshalAs(UnmanagedType.LPUTF8Str)]string player,[MarshalAs(UnmanagedType.LPUTF8Str)]string opponent);
+    [DllImport(Idas3Native.Library, CallingConvention = CallingConvention.Cdecl)] static extern int Idas3ReplayPose(double tick, float x, float y, float z, float yaw, float speed, int gear, float pitch, int cameraMode, float orbit, int width, int height);
+    [DllImport(Idas3Native.Library, CallingConvention = CallingConvention.Cdecl)] static extern int Idas3ReplayAudio(double deltaSeconds,int playing,int reset,float master,float engine,float effects);
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void Bootstrap()
@@ -222,6 +222,7 @@ public sealed class Idas3ReplayViewer : MonoBehaviour
     }
     void RequestFile()
     {
+        if(Idas3PlatformPaths.IsIOS){message="iOS replay picker is not implemented. Seed .idreplay files in the app replay directory and reopen the library.";return;}
         SilenceAudio();
         resumeAfterPicker=playing;playing=false;
         var result=new TaskCompletionSource<string>();picker=result.Task;
@@ -361,6 +362,7 @@ public sealed class Idas3ReplayViewer : MonoBehaviour
         public IntPtr fileTitle; public int maxFileTitle; public string initialDir; public string title = "Open a downloaded replay"; public int flags = 0x00080000 | 0x00001000 | 0x00000800 | 0x00000008;
         public short fileOffset, extension; public string defaultExtension = "idreplay"; public IntPtr customData, hook; public string template; public IntPtr reserved; public int reserved2, flagsEx;
     }
+#if !UNITY_IOS || UNITY_EDITOR
     [DllImport("comdlg32.dll", CharSet = CharSet.Unicode)] static extern bool GetOpenFileNameW([In, Out] OpenFileName data);
     [DllImport("comdlg32.dll")] static extern uint CommDlgExtendedError();
     static string ChooseFile(string initialDirectory)
@@ -377,6 +379,9 @@ public sealed class Idas3ReplayViewer : MonoBehaviour
         }
         finally { Marshal.FreeHGlobal(dialog.file); }
     }
+#else
+    static string ChooseFile(string initialDirectory) => throw new PlatformNotSupportedException("iOS replay picker is not implemented.");
+#endif
     void Proof()
     {
         proofFrame++;

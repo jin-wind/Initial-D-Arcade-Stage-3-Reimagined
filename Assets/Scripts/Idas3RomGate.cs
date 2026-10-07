@@ -60,7 +60,7 @@ public sealed class Idas3RomGate : MonoBehaviour
     internal void CheckAgain()
     {
         if (Verified || Checking) return;
-        if (Idas3PlatformPaths.IsAndroid && !bundledRomPrepared)
+        if (Idas3PlatformPaths.IsMobile && !bundledRomPrepared)
         {
             if (!preparingBundledRom) StartCoroutine(PrepareBundledRom());
             return;
@@ -107,7 +107,7 @@ public sealed class Idas3RomGate : MonoBehaviour
                 try { more = preparation.MoveNext(); current = more ? preparation.Current : null; }
                 catch (Exception error)
                 {
-                    Debug.LogWarning("Bundled Android ROM was not copied: " + error.Message);
+                    Debug.LogWarning("Bundled mobile ROM was not copied: " + error.Message);
                     break;
                 }
                 if (!more) break;
@@ -125,6 +125,8 @@ public sealed class Idas3RomGate : MonoBehaviour
     private IEnumerator CopyBundledRom()
     {
         string source = Application.streamingAssetsPath.TrimEnd('/') + "/rom/gds-0033.chd";
+        // iOS StreamingAssets is a normal read-only directory, not an APK URL.
+        if (Idas3PlatformPaths.IsIOS) source = new Uri(Path.GetFullPath(source)).AbsoluteUri;
         string folder = RomFolder;
         string destination = Path.Combine(folder, "gds-0033.chd");
         string temporary = destination + ".bundled-" + Guid.NewGuid().ToString("N");
@@ -152,7 +154,7 @@ public sealed class Idas3RomGate : MonoBehaviour
                         File.Move(temporary, destination);
                     }
                     else if (request.result != UnityWebRequest.Result.Success)
-                        Debug.LogWarning("Bundled Android ROM could not be read: " + request.error);
+                        Debug.LogWarning("Bundled mobile ROM could not be read: " + request.error);
                 }
             }
         }
@@ -196,6 +198,8 @@ public sealed class Idas3RomGate : MonoBehaviour
 #if UNITY_ANDROID && !UNITY_EDITOR
             using (var picker = new AndroidJavaClass("com.idas3.unity.Idas3Activity"))
                 picker.CallStatic("openRomPicker", gameObject.name);
+#elif UNITY_IOS && !UNITY_EDITOR
+            message = "iOS file picker is not implemented. Seed game/rom/gds-0033.chd in the app Documents container, or include the ROM when building, then tap CHECK AGAIN.";
 #else
             Application.OpenURL(new Uri(RomFolder + Path.DirectorySeparatorChar).AbsoluteUri);
 #endif
@@ -291,7 +295,7 @@ public sealed class Idas3RomGate : MonoBehaviour
         }
         else
         {
-            string[] labels = { "CHECK AGAIN", Idas3PlatformPaths.IsAndroid ? "IMPORT ROM FILES" : "OPEN ROM FOLDER", "QUIT" };
+            string[] labels = { "CHECK AGAIN", Idas3PlatformPaths.IsAndroid ? "IMPORT ROM FILES" : Idas3PlatformPaths.IsIOS ? "IMPORT INSTRUCTIONS" : "OPEN ROM FOLDER", "QUIT" };
             for (int i = 0; i < labels.Length; ++i)
             {
                 var rect = new Rect(198 + i * 295, 445, 280, 56);

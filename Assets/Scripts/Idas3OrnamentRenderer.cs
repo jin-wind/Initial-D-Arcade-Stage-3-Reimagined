@@ -13,13 +13,13 @@ public sealed class Idas3OrnamentRenderer : IDisposable
         public uint size,version;public ulong simulationTicks;public uint flags,car;
         public float x,y,z,yaw;
     }
-    [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)]
+    [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)]
     static extern int Idas3SceneGetOrnamentTelemetry(ref Telemetry data);
     [StructLayout(LayoutKind.Sequential,Pack=8)]
     internal struct PresentationTiming {
         public uint size,version;public ulong simulationTicks;public float alpha;public uint flags;
     }
-    [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)]
+    [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)]
     static extern int Idas3SceneGetPresentationTiming(ref PresentationTiming data);
     internal static bool ReadTiming(out PresentationTiming data){data=new PresentationTiming{size=24};return Idas3SceneGetPresentationTiming(ref data)==1&&data.version==1;}
     internal static bool Read(out Telemetry data){data=new Telemetry{size=40};return Idas3SceneGetOrnamentTelemetry(ref data)==1&&data.version==1;}

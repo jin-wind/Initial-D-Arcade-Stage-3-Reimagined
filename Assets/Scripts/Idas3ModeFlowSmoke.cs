@@ -15,9 +15,9 @@ public sealed class Idas3ModeFlowSmoke : MonoBehaviour {
     private Idas3ControlBindings headlightBindings;
     private ulong lastHighlightHash;
     private static bool LoadingTransitionCheck => Array.IndexOf(Environment.GetCommandLineArgs(),"-idas3-loading-transition-check")>=0;
-    [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)] private static extern int Idas3SceneModeFlowFixture(int scene);
-    [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)] private static extern int Idas3SceneModeFlowValue(int field);
-    [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)] private static extern int Idas3SceneGetPreRaceStatus(ref Idas3PreRaceSmoke.PreRaceStatus status);
+    [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)] private static extern int Idas3SceneModeFlowFixture(int scene);
+    [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)] private static extern int Idas3SceneModeFlowValue(int field);
+    [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)] private static extern int Idas3SceneGetPreRaceStatus(ref Idas3PreRaceSmoke.PreRaceStatus status);
     private Idas3PreRaceSmoke.PreRaceStatus StartStatus(){
         var status=new Idas3PreRaceSmoke.PreRaceStatus{size=(uint)Marshal.SizeOf<Idas3PreRaceSmoke.PreRaceStatus>()};
         Check(Idas3SceneGetPreRaceStatus(ref status)!=0,"Read countdown presentation");return status;

@@ -16,9 +16,9 @@ public sealed class Idas3ArcadeHud : IDisposable
         public float speedKmh,rpm,revLimit,throttle,brake;
         public float driftOpacity;
     }
-    [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)]
+    [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)]
     static extern int Idas3SceneGetHudTelemetry(ref Telemetry value);
-    [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)]
+    [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)]
     static extern int Idas3SceneCopyHudDriverName([Out] byte[] destination,int capacity);
     internal struct Sprite {
         public Texture texture;public Rect rect,uv;public Color color;

@@ -29,7 +29,7 @@ Shader "IDAS3/Original Scene Direct Material"
    Cull Off ZWrite [_ZWrite] ZTest [_ZTest]
    Blend [_SrcBlend] [_DstBlend], [_SrcBlendAlpha] [_DstBlendAlpha]
    HLSLPROGRAM
-   #pragma target 5.0
+   #pragma target 4.5
    #pragma vertex mainVS
    #pragma fragment mainPS
    #pragma multi_compile_local _ IDAS_IMPORTED_COURSE

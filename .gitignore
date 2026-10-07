@@ -19,6 +19,7 @@
 /Assets/Plugins/Android/arm64-v8a/
 /Assets/StreamingAssets/rom/
 /Assets/StreamingAssets/IDAS3/
+/Assets/StreamingAssets/SoundRoom/
 *.csproj
 *.sln
 *.slnx
@@ -54,3 +55,14 @@ leaderboard-backup*.sql
 Tests/Updates/installer-*/
 Tests/Updates/handoff-*/
 Tests/Updates/*-report.json
+
+# iOS/macOS local build tools and artifacts
+/Tools/Mac/unity
+/build/
+/Assets/Plugins/iOS/*.a
+/Assets/Plugins/iOS/Idas3NativeBuild.json
+
+/Tools/Mac/Unity-Login.command
+/Assets/Plugins/macOS/*.dylib
+
+/Tools/Mac/*.command

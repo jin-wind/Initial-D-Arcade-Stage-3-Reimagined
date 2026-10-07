@@ -99,13 +99,13 @@ public sealed class Idas3SceneGame : MonoBehaviour
     internal float NetworkMilliseconds { get; private set; }
     private bool performanceDiagnostics;
 
-    [DllImport("Idas3Unity", CallingConvention = CallingConvention.Cdecl)]
+    [DllImport(Idas3Native.Library, CallingConvention = CallingConvention.Cdecl)]
     private static extern int Idas3SceneInitialize(
         [MarshalAs(UnmanagedType.LPUTF8Str)] string assets,
         [MarshalAs(UnmanagedType.LPUTF8Str)] string saves, int width, int height);
-    [DllImport("Idas3Unity", CallingConvention = CallingConvention.Cdecl)]
+    [DllImport(Idas3Native.Library, CallingConvention = CallingConvention.Cdecl)]
     private static extern int Idas3SceneStep(ref Idas3Native.FrameInput frame);
-    [DllImport("Idas3Unity", CallingConvention = CallingConvention.Cdecl)]
+    [DllImport(Idas3Native.Library, CallingConvention = CallingConvention.Cdecl)]
     private static extern int Idas3SceneShutdown();
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -164,6 +164,8 @@ public sealed class Idas3SceneGame : MonoBehaviour
                 assets = androidAssetRoot;
                 Idas3PlatformPaths.RuntimeAssetsRoot = Path.Combine(assets, "data", "RuntimeAssets");
             }
+            if (Idas3PlatformPaths.IsIOS)
+                Idas3PlatformPaths.RuntimeAssetsRoot = Path.Combine(assets, "data", "RuntimeAssets");
             string saves = Path.Combine(Application.persistentDataPath, "userdata-unity-scene");
             var hakone=FindAnyObjectByType<Idas8HakoneCourse>();
             var enna=FindAnyObjectByType<IdasSpecialStageEnnaCourse>();
@@ -239,7 +241,7 @@ public sealed class Idas3SceneGame : MonoBehaviour
             gameOptions.Initialize(saves);
             controlBindings = new Idas3ControlBindings();
             controlBindings.Initialize(saves);
-            if (Idas3PlatformPaths.IsAndroid)
+            if (Idas3PlatformPaths.IsMobile)
             {
                 touchControls = gameObject.AddComponent<Idas3TouchControls>();
                 // Tilt driving and online lobbies can go a long time without a
@@ -1104,7 +1106,7 @@ public sealed class Idas3SceneGame : MonoBehaviour
         failure = message;
         failureTitle = ready ? "The game stopped" : "The game could not start";
         failureReport = "Initial D error report\n" + DateTime.UtcNow.ToString("u") +
-            "\nVersion: " + Application.version + "\nPlatform: " + Application.platform +
+            "\nVersion: " + Idas3PlatformPaths.ApplicationVersion + "\nPlatform: " + Application.platform +
             "\nSystem: " + SystemInfo.operatingSystem + "\nGraphics: " + SystemInfo.graphicsDeviceName +
             " / " + SystemInfo.graphicsDeviceType + "\nStage: " + stage +
             "\nGame data: " + Application.dataPath + "\n\n" + message;

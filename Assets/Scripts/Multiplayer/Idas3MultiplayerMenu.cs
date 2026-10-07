@@ -324,8 +324,8 @@ namespace Idas3.Multiplayer
                 if(!IsOpen){
                     if(RaceHudActive||session.IsRacing||!session.InLobby&&!session.IsQuickMatching)return;
                     float scale=Mathf.Clamp(Screen.height/900f,.75f,1.25f);
-                    // Android's top-right corner holds the touch MENU/VIEW buttons.
-                    bool phone=Idas3PlatformPaths.IsAndroid;
+                    // A phone's top-right corner holds the touch MENU/VIEW buttons.
+                    bool phone=Idas3PlatformPaths.IsMobile;
                     GUI.matrix=Matrix4x4.TRS(new Vector3(phone?Screen.width*.5f-129*scale:Screen.width-278*scale,18*scale,0),Quaternion.identity,new Vector3(scale,scale,1));
                     string state=session.IsQuickMatching?" / SEARCHING":session.InLobby?(session.PingMilliseconds>=0?" / "+session.PingMilliseconds+" ms":" / CONNECTED"):"";
                     if(ActionButton(new Rect(0,0,258,38),(phone?"ONLINE BATTLE":"F1  ONLINE BATTLE")+state))SetOpen(true);
@@ -365,7 +365,7 @@ namespace Idas3.Multiplayer
             if(ActionButton(new Rect(x,y+58,232,47),"HOST A BATTLE",session.Available&&idle))session.HostRoom();
             if(ActionButton(new Rect(x,y+116,232,47),steam?"JOIN WITH CODE":"JOIN WITH ADDRESS",idle)){joinEntry=true;controllerFocus.Reset();}
             if(ActionButton(new Rect(x,y+174,232,47),"BACK TO GAME"))SetOpen(false);
-            if(Idas3PlatformPaths.IsAndroid)Text(new Rect(x,438,232,33),"SAME WI-FI OR HOTSPOT",small);
+            if(Idas3PlatformPaths.IsMobile)Text(new Rect(x,438,232,33),"SAME WI-FI OR HOTSPOT",small);
             else{
                 if(ActionButton(new Rect(x,438,112,33),"STEAM",idle,steam))session.SelectTransport(0);
                 if(ActionButton(new Rect(x+120,438,112,33),"LAN DIRECT",idle,!steam))session.SelectTransport(1);

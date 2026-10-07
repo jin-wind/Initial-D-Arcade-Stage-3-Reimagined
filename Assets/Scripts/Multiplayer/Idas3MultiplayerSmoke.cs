@@ -54,9 +54,9 @@ namespace Idas3.Multiplayer
             public ChoiceRecord hostChoice,guestChoice,selected;
         }
         private bool courseReadinessInvalidated;
-        [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)]
+        [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)]
         private static extern int Idas3SceneGetPreRaceStatus(ref Idas3PreRaceSmoke.PreRaceStatus status);
-        [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)]
+        [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)]
         private static extern int Idas3SceneGetRaceAudioStatus(ref Idas3PreRaceSmoke.RaceAudioStatus status);
         private static Idas3RaceChoice HostCoursePick=>new Idas3RaceChoice(0,false,false,false);
         private static Idas3RaceChoice GuestCoursePick=>new Idas3RaceChoice(3,true,true,true);
@@ -977,7 +977,7 @@ namespace Idas3.Multiplayer
             }
         }
         private bool MotionCheck=>Array.IndexOf(Environment.GetCommandLineArgs(),"-idas3-multiplayer-motion-check")>=0;
-        [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)]
+        [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)]
         private static extern int Idas3MultiplayerMotionSample([Out] double[] values,uint count);
         private readonly List<double[]> motionSamples=new List<double[]>();
         private void RecordMotion(){

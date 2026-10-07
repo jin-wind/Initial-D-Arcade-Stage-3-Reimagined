@@ -14,13 +14,13 @@ internal sealed class Idas3RaceMusicCatalog
         public int selectedIndex,activeIndex;
         public uint opponentId,reserved;
     }
-    [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)]
+    [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)]
     private static extern int Idas3SceneGetRaceMusicState(ref MusicState state);
-    [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)]
+    [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)]
     private static extern int Idas3SceneCopyRaceMusicText(int index,int field,[Out] byte[] target,int capacity);
-    [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)]
+    [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)]
     private static extern int Idas3SceneGetRaceMusicStage(int index);
-    [DllImport("Idas3Unity",CallingConvention=CallingConvention.Cdecl)]
+    [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)]
     private static extern int Idas3SceneSetRaceMusicTrack(int index,int context);
     internal MusicState State {get;private set;}
     internal Idas3RaceMusicMenu.Entry[] Entries {get;private set;}

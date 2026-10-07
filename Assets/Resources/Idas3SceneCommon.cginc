@@ -128,10 +128,14 @@ float sourceFogCoefficient(float reciprocalDepth){
  uint pair=_IdasFogWords[2+(index>>2)][index&3];
  return lerp(float(pair>>8),float(pair&255),fraction)/255.0;
 }
-struct V{float3 p:POSITION;float3 n:NORMAL;float4 c:COLOR0;float2 uv:TEXCOORD0;float4 offsetColor:TEXCOORD1;float2 treeFace:TEXCOORD2;UNITY_VERTEX_INPUT_INSTANCE_ID};
+struct V{float3 p:POSITION;float3 n:NORMAL;float4 c:COLOR0;float2 uv:TEXCOORD0;float4 offsetColor:TEXCOORD1;float2 treeFace:TEXCOORD2;
+#if defined(IDAS3_VERTEX_TRIANGLES) && defined(IDAS_IMPORTED_COURSE)
+ float3 triangleFace:TEXCOORD3;float3 triangleOrigin:TEXCOORD4;
+#endif
+ UNITY_VERTEX_INPUT_INSTANCE_ID};
 struct P{float4 p:SV_POSITION;float3 world:TEXCOORD0;float3 n:NORMAL;float4 c:COLOR0;float2 uv:TEXCOORD1;float4 offsetColor:COLOR1;noperspective float reciprocalDepth:TEXCOORD2;float treeFace:TEXCOORD3;float sponsorAxis:TEXCOORD4;};
 Texture2D _MainTex;SamplerState sampler_MainTex;
-P mainVS(V v){UNITY_SETUP_INSTANCE_ID(v);P o;o.treeFace=v.treeFace.x;o.sponsorAxis=v.treeFace.y;
+P idasSceneVertex(V v){P o;o.treeFace=v.treeFace.x;o.sponsorAxis=v.treeFace.y;
 #if defined(IDAS_IMPORTED_COURSE)
  o.world=mul(unity_ObjectToWorld,float4(v.p,1)).xyz;
  // Imported geometry shares the D3 camera's clip/depth convention with cars.
@@ -199,6 +203,67 @@ P mainVS(V v){UNITY_SETUP_INSTANCE_ID(v);P o;o.treeFace=v.treeFace.x;o.sponsorAx
  return o;
 #endif
 }
+#if defined(IDAS3_VERTEX_TRIANGLES) && !defined(IDAS_IMPORTED_COURSE)
+// Four float4 words exactly match the native/C# 64-byte SceneVertex ABI.
+// Avoid float3 members in StructuredBuffer layouts: Metal alignment differs.
+struct IdasPackedVertex { float4 a,b,c,d; };
+StructuredBuffer<IdasPackedVertex> _IdasTriangleVertices;
+V idasTriangleVertex(uint index){
+ IdasPackedVertex s=_IdasTriangleVertices[index];V v=(V)0;
+ v.p=s.a.xyz;v.n=float3(s.a.w,s.b.xy);v.c=float4(s.b.zw,s.c.xy);
+ v.uv=s.c.zw;v.offsetColor=s.d;return v;
+}
+float3 idasTriangleWorld(V v){
+ if(billboard==0)return v.p;
+ float3 facing=cross(cameraRight.xyz,cameraUp.xyz);
+ float localZ=(gmp&512)==0?0:v.p.z;
+ return v.n+cameraRight.xyz*v.p.x+cameraUp.xyz*v.p.y+facing*localZ;
+}
+#endif
+P mainVS(V v
+#if defined(IDAS3_VERTEX_TRIANGLES) && !defined(IDAS_IMPORTED_COURSE)
+ ,uint vertexId:SV_VertexID
+#endif
+){
+ UNITY_SETUP_INSTANCE_ID(v);
+ P o=idasSceneVertex(v);
+#if defined(IDAS3_VERTEX_TRIANGLES)
+ #if defined(IDAS_IMPORTED_COURSE)
+ // Paired faces carry an identical local plane at all three vertices. The
+ // inverse transpose plus determinant sign preserves authored winding for
+ // nonuniform/mirrored instance transforms, independent of clip-space flips.
+ if(v.treeFace.x>.5){
+  float3 face=mul(v.triangleFace,(float3x3)unity_WorldToObject)*unity_WorldTransformParams.w;
+  float3 origin=mul(unity_ObjectToWorld,float4(v.triangleOrigin,1)).xyz;
+  if(dot(face,eye.xyz-origin)<=0)o.p=float4(2,2,2,1);
+ }
+ #else
+ // Native meshes contain an identity-indexed triangle list. Every invocation
+ // evaluates the SAME primitive plane, using the active main/rear camera.
+ uint first=vertexId-vertexId%3;
+ if(courseCullMode>=2){
+  float3 a=idasTriangleWorld(idasTriangleVertex(first));
+  float3 b=idasTriangleWorld(idasTriangleVertex(first+1));
+  float3 c=idasTriangleWorld(idasTriangleVertex(first+2));
+  float facing=dot(cross(b-a,c-a),eye.xyz-a);
+  if((courseCullMode==2&&facing>=0)||(courseCullMode==3&&facing<=0)){
+   // All three vertices are outside the SAME clip plane: no rasterized
+   // fragments and no reliance on reversed-Z or front-face conventions.
+   o.p=float4(2,2,2,1);return o;
+  }
+ }
+ if(original!=0&&(pcw&2)==0){
+  // Match the GS's final source vertex AFTER all course/showroom/lamp
+  // lighting and material routing; flattening unlit colors is not equivalent.
+  P provoking=idasSceneVertex(idasTriangleVertex(first+2));
+  o.c=provoking.c;o.offsetColor=provoking.offsetColor;
+ }
+ #endif
+#endif
+ return o;
+}
+
+#if defined(IDAS3_GEOMETRY_STAGE)
 // ELAN flat shading uses the final source strip vertex after lighting. D3D's
 // default provoking vertex differs, so select the recovered final vertex
 // explicitly for showroom and course GLM passes.
@@ -232,6 +297,7 @@ void showroomGeometry(triangle P input[3],inout TriangleStream<P> stream){
  }
 #endif
 }
+#endif // IDAS3_GEOMETRY_STAGE
 float4 mainPS(P v):SV_TARGET{
 #if defined(IDAS_IMPORTED_COURSE)
  float2 shadowUv=_ImportedShadowUv==0?v.uv:v.offsetColor.xy;

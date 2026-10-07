@@ -1,3 +1,4 @@
+#if !UNITY_IOS
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -538,3 +539,56 @@ namespace Idas3.Multiplayer
         }
     }
 }
+
+#else
+using System;
+using System.Collections.Generic;
+namespace Idas3.Multiplayer
+{
+    // No Steamworks assembly or native library is linked into the iOS player.
+    public sealed class Idas3SteamTransport : IIdas3MatchmakingTransport, IIdas3RegionalMatchmakingTransport, IIdas3MatchmakingServiceState
+    {
+        public const uint DevelopmentAppId=480;
+        public const string GameNamespace="idas3-unity-recompiled-p2p-20260909", TransportProtocol="1";
+        public const int MaxPayloadBytes=65536;
+        public bool ActivityRequested {get;set;}
+        public bool PublishActivity {get;set;}
+        public string ActivityState {get;set;}="online";
+        public Idas3OnlineActivity Activity=>default;
+        public string Kind=>"Steam (unavailable on iOS)";
+        public bool Available=>false;
+        public bool ServiceConnected=>false;
+        public bool Connected=>false;
+        public bool IsHost=>false;
+        public string LocalId=>"";
+        public string LocalName=>"";
+        public string RemoteId=>"";
+        public string RemoteName=>"";
+        public string RoomCode=>"";
+        public string Status=>"Steam is unavailable on iOS. Select TCP for direct LAN connections.";
+        public IReadOnlyList<Idas3Room> Rooms=>Array.Empty<Idas3Room>();
+        public bool IsBusy=>false;
+        public bool InLobby=>false;
+        public ulong RoomOrder=>0;
+        public int RoomMembers=>0;
+        public string BuildCompatibility {get;set;}
+        public event Action<byte[]> Message {add{} remove{}}
+        public event Action PeerChanged {add{} remove{}}
+        public event Action<string> Error;
+        public Idas3SteamTransport(){}
+        internal Idas3SteamTransport(Func<double> now){}
+        private void Unavailable()=>Error?.Invoke(Status);
+        public bool Initialize(){Unavailable();return false;}
+        public void Host(string roomName)=>Unavailable();
+        public void HostQuickMatch(string roomName)=>Unavailable();
+        public void Join(string roomCode)=>Unavailable();
+        public void Browse()=>Unavailable();
+        public void BrowseQuickMatch(int distance)=>Unavailable();
+        public void Send(byte[] data,bool reliable)=>Unavailable();
+        public void Poll(){}
+        public void Leave(){}
+        public void Dispose(){}
+        internal double[] DiagnosticMembershipCost()=>throw new PlatformNotSupportedException(Status);
+    }
+}
+#endif

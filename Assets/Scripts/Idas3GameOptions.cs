@@ -94,10 +94,10 @@ public sealed class Idas3GameOptions
         public ResolutionChoice(int width,int height){this.width=width;this.height=height;}
         public override string ToString()=>width+" × "+height;
     }
-    // Android renders a percentage of the panel's native landscape size: a
+    // Phones render a percentage of the panel's native landscape size: a
     // fixed 1280×720 / 960×540 would be stretched across a 20:9 phone. There is
-    // no windowed mode, and an uncapped Android target means 30 FPS, not "unlimited".
-    internal static bool MobileDisplay=>Idas3PlatformPaths.IsAndroid;
+    // no windowed mode, and an uncapped Android/iOS target means 30 FPS, not "unlimited".
+    internal static bool MobileDisplay=>Idas3PlatformPaths.IsMobile;
     internal static readonly int[] RenderScales={100,85,75,67,50};
     internal static readonly int[] MobileFrameRates={30,60,90,120};
     internal static ResolutionChoice NativeDisplay{get{
