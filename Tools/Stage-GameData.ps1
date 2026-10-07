@@ -25,6 +25,8 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $projectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+$onWindows = [Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT
+$sep = [string][IO.Path]::DirectorySeparatorChar
 if (-not $SourceRoot) { $SourceRoot = Join-Path $projectRoot 'Native' }
 if (-not $DestinationRoot) { $DestinationRoot = Join-Path $projectRoot 'RuntimeData/IDAS3' }
 if (-not $ManifestPath) { $ManifestPath = Join-Path $projectRoot 'Staging/game-data-manifest.json' }
@@ -35,14 +37,14 @@ $sourceData = Join-Path $SourceRoot 'data'
 $targetData = Join-Path $DestinationRoot 'data'
 if (-not (Test-Path -LiteralPath $sourceData -PathType Container)) { throw "Source data missing: $sourceData" }
 if ($DestinationRoot.Equals($SourceRoot, [StringComparison]::OrdinalIgnoreCase) -or
-    $DestinationRoot.StartsWith($SourceRoot + '\', [StringComparison]::OrdinalIgnoreCase) -or
-    $SourceRoot.StartsWith($DestinationRoot + '\', [StringComparison]::OrdinalIgnoreCase)) {
+    $DestinationRoot.StartsWith($SourceRoot + $sep, [StringComparison]::OrdinalIgnoreCase) -or
+    $SourceRoot.StartsWith($DestinationRoot + $sep, [StringComparison]::OrdinalIgnoreCase)) {
     throw 'Source and deployment roots must be separate; staging must not modify the native snapshot.'
 }
-if ($ManifestPath.StartsWith($SourceRoot + '\', [StringComparison]::OrdinalIgnoreCase)) {
+if ($ManifestPath.StartsWith($SourceRoot + $sep, [StringComparison]::OrdinalIgnoreCase)) {
     throw 'The inventory manifest must be outside the native snapshot.'
 }
-if ($ManifestPath.StartsWith($targetData + '\', [StringComparison]::OrdinalIgnoreCase)) {
+if ($ManifestPath.StartsWith($targetData + $sep, [StringComparison]::OrdinalIgnoreCase)) {
     throw 'The manifest must be outside the deployed data tree.'
 }
 function Assert-NoReparseAncestor([string]$Path) {
@@ -117,8 +119,19 @@ if (-not $InventoryOnly) {
     }
     [IO.Directory]::CreateDirectory($targetData) | Out-Null
     # No /MIR or /PURGE: never remove user files or Unity-generated metadata.
-    & robocopy.exe $sourceData $targetData /E /COPY:DAT /DCOPY:DAT /R:1 /W:1 /XJ /NFL /NDL /NP /NJH /NJS | Out-Host
-    if ($LASTEXITCODE -ge 8) { throw "Runtime data staging failed (robocopy exit $LASTEXITCODE)." }
+    if ($onWindows) {
+        & robocopy.exe $sourceData $targetData /E /COPY:DAT /DCOPY:DAT /R:1 /W:1 /XJ /NFL /NDL /NP /NJH /NJS | Out-Host
+        if ($LASTEXITCODE -ge 8) { throw "Runtime data staging failed (robocopy exit $LASTEXITCODE)." }
+    } else {
+        # Linux CI: the same copy-only rule; every file is hash-verified below.
+        foreach ($file in $sourceFiles) {
+            $target = Join-Path $targetData (Relative-DataPath $file.FullName)
+            [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target)) | Out-Null
+            if (-not (Test-Path -LiteralPath $target -PathType Leaf) -or (Get-Item -LiteralPath $target).Length -ne $file.Length) {
+                [IO.File]::Copy($file.FullName, $target, $true)
+            }
+        }
+    }
     $index = 0
     foreach ($record in $records) {
         $destination = Join-Path $targetData $record.path

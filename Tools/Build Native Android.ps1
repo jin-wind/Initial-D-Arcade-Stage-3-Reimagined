@@ -9,26 +9,30 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$sdkRoot = if ($env:ANDROID_SDK_ROOT) { $env:ANDROID_SDK_ROOT } elseif ($env:ANDROID_HOME) { $env:ANDROID_HOME } else { Join-Path $env:LOCALAPPDATA 'Android\Sdk' }
+# Windows and Linux (GitHub Actions runners) share this script; use '/' in
+# relative paths, which PowerShell accepts on both.
+$onWindows = [Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT
+$sdkRoot = if ($env:ANDROID_SDK_ROOT) { $env:ANDROID_SDK_ROOT } elseif ($env:ANDROID_HOME) { $env:ANDROID_HOME } elseif ($onWindows) { Join-Path $env:LOCALAPPDATA 'Android/Sdk' } else { Join-Path $HOME 'Android/Sdk' }
 $sdkRoot = (Resolve-Path $sdkRoot).Path
 $ndkRoot = Join-Path $sdkRoot 'ndk'
 if ($NdkVersion) {
     $ndk = Join-Path $ndkRoot $NdkVersion
 } else {
     $ndk = Get-ChildItem -LiteralPath $ndkRoot -Directory | Sort-Object Name -Descending |
-        Where-Object { Test-Path (Join-Path $_.FullName 'build\cmake\android.toolchain.cmake') } |
+        Where-Object { Test-Path (Join-Path $_.FullName 'build/cmake/android.toolchain.cmake') } |
         Select-Object -First 1 -ExpandProperty FullName
 }
-if (-not $ndk -or -not (Test-Path (Join-Path $ndk 'build\cmake\android.toolchain.cmake'))) {
+if (-not $ndk -or -not (Test-Path (Join-Path $ndk 'build/cmake/android.toolchain.cmake'))) {
     throw "Android NDK not found under $ndkRoot. Install an NDK and pass -NdkVersion explicitly when multiple versions are present."
 }
 
 $cmakeCommand = Get-Command cmake -ErrorAction SilentlyContinue
 $cmakePath = if ($cmakeCommand) { $cmakeCommand.Source } else { $null }
 if (-not $cmakePath) {
+    $cmakeExe = if ($onWindows) { 'bin/cmake.exe' } else { 'bin/cmake' }
     $cmakeCandidates = Get-ChildItem -LiteralPath (Join-Path $sdkRoot 'cmake') -Directory -ErrorAction SilentlyContinue |
         Sort-Object Name -Descending |
-        ForEach-Object { Join-Path $_.FullName 'bin\cmake.exe' } |
+        ForEach-Object { Join-Path $_.FullName $cmakeExe } |
         Where-Object { Test-Path $_ }
     if ($cmakeCandidates) { $cmakePath = $cmakeCandidates | Select-Object -First 1 }
 }
@@ -39,10 +43,10 @@ if (-not $cmakePath) {
 $ninja = Get-Command ninja -ErrorAction SilentlyContinue
 if (-not $ninja) { throw 'Ninja was not found on PATH. Install Ninja or use a CMake generator available on this machine.' }
 
-$buildRoot = Join-Path $projectRoot 'Native\build-android-arm64'
-if (-not $OutputDirectory) { $OutputDirectory = Join-Path $projectRoot 'Assets\Plugins\Android\arm64-v8a' }
+$buildRoot = Join-Path $projectRoot 'Native/build-android-arm64'
+if (-not $OutputDirectory) { $OutputDirectory = Join-Path $projectRoot 'Assets/Plugins/Android/arm64-v8a' }
 $OutputDirectory = [IO.Path]::GetFullPath($OutputDirectory)
-$toolchain = Join-Path $ndk 'build\cmake\android.toolchain.cmake'
+$toolchain = Join-Path $ndk 'build/cmake/android.toolchain.cmake'
 $cmakeArgs = @(
     '-S', (Join-Path $projectRoot 'Native'),
     '-B', $buildRoot,
