@@ -374,6 +374,10 @@ namespace Idas3.Multiplayer
                 Section(new Rect(280,190,594,286),"OPEN ROOMS");
                 if(ActionButton(new Rect(736,201,120,28),session.Available?"REFRESH":"RETRY STEAM",idle))session.RefreshRooms();
                 RoomsList(new Rect(299,246,552,198));
+            }else if(Idas3PlatformPaths.IsIOS){
+                Section(new Rect(280,190,594,286),"DIRECT LAN CONNECTION");
+                Text(new Rect(300,255,530,70),"Host a battle, then enter the host's address on the other device using JOIN WITH ADDRESS.",wrapped);
+                Text(new Rect(300,350,530,70),"Both drivers need the same game version and the same Wi-Fi or hotspot.",wrapped);
             }else{
                 // Hosts on the same network announce themselves; the address
                 // entry stays available for networks that block broadcasts.

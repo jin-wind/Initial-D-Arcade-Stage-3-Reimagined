@@ -51,7 +51,8 @@ namespace Idas3.Multiplayer
         public event Action PeerChanged;
         public event Action<string> Error;
         static string OnlineMenu => Idas3PlatformPaths.IsMobile ? "ONLINE" : "F1";
-        string ReadyStatus => discovery != null ? "Looking for rooms on this network…" : "Direct LAN is ready.";
+        string ReadyStatus => Idas3PlatformPaths.IsIOS ? "Direct LAN is ready. Host a battle or join with the host's address." :
+            discovery != null ? "Looking for rooms on this network…" : "Direct LAN is ready.";
 
         public Idas3TcpTransport(int port = 27035, bool loopbackOnly = false, string name = null)
         {
@@ -178,7 +179,10 @@ namespace Idas3.Multiplayer
 
         void StartDiscovery()
         {
-            if (loopbackOnly || discovery != null) return;
+            // The device build has local-network permission, but no Apple
+            // multicast entitlement. Direct TCP works without UDP broadcast;
+            // keep that usable while shared Bonjour discovery is implemented.
+            if (Idas3PlatformPaths.IsIOS || loopbackOnly || discovery != null) return;
             try {
                 var socket = new UdpClient();
                 socket.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
@@ -218,7 +222,7 @@ namespace Idas3.Multiplayer
         }
         void StartBeacon()
         {
-            if (loopbackOnly) return;
+            if (Idas3PlatformPaths.IsIOS || loopbackOnly) return;
             try {
                 beacon = new UdpClient { EnableBroadcast = true };
                 beaconTargets = BroadcastTargets(); lastBeacon = double.NegativeInfinity;

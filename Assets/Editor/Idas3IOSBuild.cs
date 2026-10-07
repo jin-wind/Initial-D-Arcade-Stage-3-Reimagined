@@ -25,17 +25,21 @@ public static class Idas3IOSBuild
     [MenuItem("Initial D/iOS/Export ARM64 Device Xcode Project")]
     public static void BuildDevice() => Build(false);
 
-    public static void BuildSimulatorChecked()
+    public static void RunChecks()
     {
         Idas3TouchControlsTests.Run();
         Idas3MetalGeometryChecks.Run();
+    }
+
+    public static void BuildSimulatorChecked()
+    {
+        RunChecks();
         BuildSimulator();
     }
 
     public static void BuildDeviceChecked()
     {
-        Idas3TouchControlsTests.Run();
-        Idas3MetalGeometryChecks.Run();
+        RunChecks();
         BuildDevice();
     }
 

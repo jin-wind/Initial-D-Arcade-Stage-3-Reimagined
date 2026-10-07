@@ -429,7 +429,7 @@ namespace Idas3.Multiplayer
                         Require(sender!=0 && recipient==0,"Invalid handshake.");
                         string build=r.ReadString();bool host=r.ReadBoolean();string name=r.ReadString();int car=r.ReadInt32();
                         uint helloSerial=r.ReadUInt32();var helloChoice=ReadChoice(r);var helloRecord=ReadRecord(r);var helloCar=Idas3OnlineCar.Read(r,car);
-                        Require(build==Compatibility(),Idas3PlatformPaths.IsAndroid?"Both drivers need the same game version. Install the same APK on both phones.":Idas3PlatformPaths.IsIOS?"Both drivers need the same game version ("+Idas3PlatformPaths.ApplicationVersion+") on both devices.":"Both drivers need the same game build. Copy the complete Current folder to the other PC.");
+                        Require(build==Compatibility(),Idas3PlatformPaths.IsMobile?"Both drivers need the same game version ("+Idas3PlatformPaths.ApplicationVersion+") on both devices.":"Both drivers need the same game build. Copy the complete Current folder to the other PC.");
                         Require(host!=IsHost && name.Length<=128 && car>=0 && car<35,"Invalid driver handshake.");
                         if (HandshakeComplete) { Require(sender==remoteNonce,"Driver session changed unexpectedly."); break; }
                         remoteNonce=sender;remoteName=Clean(name);RemoteSavedCar=helloCar;remoteCar=car;remoteRecord=helloRecord;remotePlayerSerial=helloSerial;RemoteChoice=helloChoice;HandshakeComplete=true;state="Lobby";
