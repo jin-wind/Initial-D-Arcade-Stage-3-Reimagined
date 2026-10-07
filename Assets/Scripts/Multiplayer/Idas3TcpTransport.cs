@@ -19,6 +19,7 @@ namespace Idas3.Multiplayer
         const string BeaconMagic = "IDAS3LAN1";
         const double BeaconInterval = 1, RoomLifetime = 4;
         readonly int port;
+        readonly int discoveryPort;
         readonly bool loopbackOnly;
         readonly string identity = Guid.NewGuid().ToString("N");
         readonly byte[] receive = new byte[MaxQueuedBytes];
@@ -55,9 +56,14 @@ namespace Idas3.Multiplayer
             discovery != null ? "Looking for rooms on this network…" : "Direct LAN is ready.";
 
         public Idas3TcpTransport(int port = 27035, bool loopbackOnly = false, string name = null)
+            : this(port, loopbackOnly, name, DiscoveryPort) { }
+
+        internal Idas3TcpTransport(int port, bool loopbackOnly, string name, int discoveryPort)
         {
             if (port < 1024 || port > 65535) throw new ArgumentOutOfRangeException(nameof(port));
+            if (discoveryPort < 0 || discoveryPort > 65535) throw new ArgumentOutOfRangeException(nameof(discoveryPort));
             this.port = port; this.loopbackOnly = loopbackOnly;
+            this.discoveryPort = discoveryPort;
             LocalName = string.IsNullOrWhiteSpace(name) ? "Driver " + identity.Substring(0, 4) : name;
         }
         public bool Initialize() { Available = true; StartDiscovery(); Status = ReadyStatus; return true; }
@@ -186,7 +192,7 @@ namespace Idas3.Multiplayer
             try {
                 var socket = new UdpClient();
                 socket.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-                socket.Client.Bind(new IPEndPoint(IPAddress.Any, DiscoveryPort));
+                socket.Client.Bind(new IPEndPoint(IPAddress.Any, discoveryPort));
                 socket.EnableBroadcast = true; socket.Client.Blocking = false;
                 discovery = socket; MulticastLock(true);
             } catch (Exception e) { Debug.LogWarning("IDAS3 LAN discovery unavailable: " + e.Message); }
@@ -374,11 +380,13 @@ namespace Idas3.Multiplayer
             Check(AddressScore(false, true, "wlan0") > AddressScore(false, false, "rmnet_data0"), "Android Wi-Fi beats mobile data without gateway info");
             Check(AddressScore(true, true, "Ethernet") > AddressScore(false, true, "vEthernet (WSL)"), "Windows routed adapter beats virtual adapter");
             // Real sockets: a beacon arriving on the discovery port becomes a joinable room.
-            var browser = new Idas3TcpTransport(name: "Browser") { BuildCompatibility = "idas3-build1-same" };
+            // An ephemeral port isolates this test from a game already running
+            // on the same Mac (the Simulator shares the host's network stack).
+            var browser = new Idas3TcpTransport(27035, false, "Browser", 0) { BuildCompatibility = "idas3-build1-same" };
             try {
                 Check(browser.Initialize() && browser.discovery != null, "discovery socket opens");
                 using (var sender = new UdpClient()) {
-                    var target = new IPEndPoint(IPAddress.Loopback, DiscoveryPort);
+                    var target = new IPEndPoint(IPAddress.Loopback, ((IPEndPoint)browser.discovery.Client.LocalEndPoint).Port);
                     void Send(byte[] packet) => sender.Send(packet, packet.Length, target);
                     Send(WriteBeacon(Guid.NewGuid().ToString("N"), "idas3-build1-other", 27035, "Old build"));
                     Send(WriteBeacon(browser.identity, "idas3-build1-same", 27035, "Myself"));
