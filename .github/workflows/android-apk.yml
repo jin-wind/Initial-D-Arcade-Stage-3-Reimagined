@@ -80,6 +80,13 @@ jobs:
           unityVersion: ${{ env.UNITY_VERSION }}
           targetPlatform: Android
           androidExportType: androidPackage
+          # Optional fixed test key. The fork uses the local debug key so CI
+          # updates retain existing saves instead of requiring an uninstall.
+          androidKeystoreBase64: ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}
+          androidKeystoreName: ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 != '' && 'idas3-debug.keystore' || '' }}
+          androidKeystorePass: ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 != '' && 'android' || '' }}
+          androidKeyaliasName: ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 != '' && 'androiddebugkey' || '' }}
+          androidKeyaliasPass: ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 != '' && 'android' || '' }}
           # Runs the editor self-tests, then Idas3Build.BuildAndroidArm64,
           # which writes Builds/Android/InitialDUnity.apk.
           buildMethod: Idas3TouchControlsTests.BuildAndroid
@@ -94,7 +101,7 @@ jobs:
           ls -l "$apk"
           # Re-hashes every packaged runtime file and checks 16 KB ELF alignment.
           python3 "Tools/Verify Android APK.py" "$apk" | tail -n 40
-          "$ANDROID_SDK_ROOT/build-tools/36.0.0/apksigner" verify --verbose "$apk"
+          "$ANDROID_SDK_ROOT/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$apk" | tee Builds/Android/signing.txt
           "$ANDROID_SDK_ROOT/build-tools/36.0.0/zipalign" -c -P 16 -v 4 "$apk" > Builds/Android/zipalign.log
 
       - uses: actions/upload-artifact@v7
@@ -104,6 +111,7 @@ jobs:
             Builds/Android/InitialDUnity.apk
             Builds/Android/InitialDUnity.verification.json
             Builds/Android/zipalign.log
+            Builds/Android/signing.txt
           compression-level: 0
           retention-days: 30
           if-no-files-found: error

@@ -20,7 +20,13 @@ Download a successful run's `InitialDUnity-android-<commit>` artifact on the
 Actions page. It contains the APK and verification reports and expires after
 30 days. The large APK is not attached to a GitHub Release. With no release
 keystore configured, the hosted build uses a debug key; do not assume it can
-update a locally signed installation. Consistent signing is a separate step.
+update a locally signed installation. The optional
+`ANDROID_DEBUG_KEYSTORE_BASE64` secret supplies a fixed debug keystore (alias
+`androiddebugkey`, passwords `android`). This fork reuses the key of the local
+Android test builds so future CI APKs can update those installations. This is
+a test signing setup, not an App Store/Play distribution key. The custom Unity
+build method explicitly consumes GameCI's signing arguments. Each successful
+artifact includes the public signing certificate fingerprint in `signing.txt`.
 
 ## Android and iOS from the same commit
 

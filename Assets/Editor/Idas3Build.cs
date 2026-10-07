@@ -182,12 +182,35 @@ public static class Idas3Build
         androidPlugin.SetCompatibleWithPlatform(BuildTarget.Android,true);
         androidPlugin.SetPlatformData(BuildTarget.Android,"CPU","ARM64");
         androidPlugin.SaveAndReimport();
+        ConfigureAndroidSigning();
         AssetDatabase.SaveAssets();
         Directory.CreateDirectory(Path.GetDirectoryName(output));
         var report=BuildPipeline.BuildPlayer(new BuildPlayerOptions{scenes=new[]{scenePath},locationPathName=output,
             target=BuildTarget.Android,options=BuildOptions.CompressWithLz4HC});
         if(report.summary.result!=BuildResult.Succeeded)throw new InvalidOperationException("Android ARM64 build failed: "+report.summary.result);
         Debug.Log("Android APK built: "+Path.GetFullPath(output)+" ("+new FileInfo(output).Length+" bytes)");
+    }
+
+    private static void ConfigureAndroidSigning()
+    {
+        // GameCI supplies these arguments, but its default build method is not
+        // used here. Apply them explicitly so custom builds use the fixed key.
+        var args=Environment.GetCommandLineArgs();
+        string Read(string flag){int at=Array.IndexOf(args,flag);return at>=0&&at+1<args.Length?args[at+1]:null;}
+        string key=Read("-androidKeystoreName");
+        if(string.IsNullOrWhiteSpace(key))return;
+        string password=Read("-androidKeystorePass"),alias=Read("-androidKeyaliasName"),aliasPassword=Read("-androidKeyaliasPass");
+        if(string.IsNullOrEmpty(password)||string.IsNullOrEmpty(alias)||string.IsNullOrEmpty(aliasPassword))
+            throw new InvalidOperationException("Android signing requires the keystore password, alias and alias password.");
+        string root=Path.GetFullPath(Path.Combine(Application.dataPath,".."));
+        string path=Path.IsPathRooted(key)?key:Path.Combine(root,key);
+        if(!File.Exists(path))throw new FileNotFoundException("Android signing keystore was not staged by the build action.");
+        PlayerSettings.Android.useCustomKeystore=true;
+        PlayerSettings.Android.keystoreName=path;
+        PlayerSettings.Android.keystorePass=password;
+        PlayerSettings.Android.keyaliasName=alias;
+        PlayerSettings.Android.keyaliasPass=aliasPassword;
+        Debug.Log("Android: configured the supplied CI signing key.");
     }
 
     public static void RebuildWindowsPlayer(){
