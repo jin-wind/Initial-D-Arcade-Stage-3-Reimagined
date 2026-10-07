@@ -127,7 +127,7 @@ if (-not $InventoryOnly) {
         foreach ($file in $sourceFiles) {
             $target = Join-Path $targetData (Relative-DataPath $file.FullName)
             [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target)) | Out-Null
-            if (-not (Test-Path -LiteralPath $target -PathType Leaf) -or (Get-Item -LiteralPath $target).Length -ne $file.Length) {
+            if (-not (Test-Path -LiteralPath $target -PathType Leaf) -or (Get-Item -LiteralPath $target).Length -ne $file.Length -or (Hash-File $target) -ne (Hash-File $file.FullName)) {
                 [IO.File]::Copy($file.FullName, $target, $true)
             }
         }
