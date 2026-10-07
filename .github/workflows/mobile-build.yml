@@ -105,12 +105,16 @@ jobs:
           app="Builds/iOS-Products/${{ matrix.sdk }}/InitialDUnity.app"
           version=$(sed -n 's/^  bundleVersion: //p' ProjectSettings/ProjectSettings.asset)
           test -n "$version"
-          python3 "Tools/Verify iOS App.py" "$app" --sdk "${{ matrix.sdk }}" --version "$version"
-          mkdir -p Builds/iOS-Artifacts
           if [ "${{ matrix.sdk }}" = iphonesimulator ]; then
             # ARM64 Simulator apps need an ad-hoc signature, not a device profile.
             codesign --force --deep --sign - "$app"
             codesign --verify --deep --strict "$app"
+          fi
+          # Signing modifies Mach-O files. Hash the final signed Simulator
+          # binaries, so the report describes what the artifact contains.
+          python3 "Tools/Verify iOS App.py" "$app" --sdk "${{ matrix.sdk }}" --version "$version"
+          mkdir -p Builds/iOS-Artifacts
+          if [ "${{ matrix.sdk }}" = iphonesimulator ]; then
             ditto -c -k --keepParent "$app" Builds/iOS-Artifacts/InitialDUnity-Simulator.zip
           else
             mkdir -p Builds/iOS-Payload/Payload
