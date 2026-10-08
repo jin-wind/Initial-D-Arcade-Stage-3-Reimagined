@@ -356,8 +356,11 @@ namespace Idas3.Multiplayer
         internal static int AddressScore(bool gateway, bool privateAddress, string name)
         {
             name = (name ?? "").ToLowerInvariant();
-            bool wireless = name.StartsWith("wlan") || name.StartsWith("swlan") || name.StartsWith("ap") || name.StartsWith("softap") || name.StartsWith("eth");
-            return (gateway ? 4 : 0) + (privateAddress ? 2 : 0) + (wireless ? 1 : 0);
+            bool wireless = name.StartsWith("wlan") || name.StartsWith("swlan") || name.StartsWith("ap") || name.StartsWith("softap") ||
+                name == "en0" || name.StartsWith("bridge") || name.StartsWith("wi-fi") || name.StartsWith("wifi");
+            // A phone's default route may use cellular data while its hotspot
+            // hosts the game. Prefer a private Wi-Fi/hotspot interface even then.
+            return (privateAddress && wireless ? 8 : 0) + (gateway ? 4 : 0) + (privateAddress ? 2 : 0) + (name.StartsWith("eth") ? 1 : 0);
         }
 
         internal static int RunLanSelfTests()
@@ -378,6 +381,9 @@ namespace Idas3.Multiplayer
             Check(SubnetBroadcast(IPAddress.Parse("10.0.0.1"), IPAddress.Parse("255.255.255.255")) == null && SubnetBroadcast(IPAddress.Parse("10.0.0.1"), IPAddress.Any) == null, "no broadcast for /32 or empty mask");
             Check(IsPrivate(IPAddress.Parse("172.20.1.1")) && IsPrivate(IPAddress.Parse("192.168.0.156")) && !IsPrivate(IPAddress.Parse("100.64.0.1")) && !IsPrivate(IPAddress.Parse("8.8.8.8")), "private ranges");
             Check(AddressScore(false, true, "wlan0") > AddressScore(false, false, "rmnet_data0"), "Android Wi-Fi beats mobile data without gateway info");
+            Check(AddressScore(false, true, "wlan0") > AddressScore(true, true, "rmnet_data0"), "Android hotspot beats a private cellular default route");
+            Check(AddressScore(false, true, "en0") > AddressScore(true, true, "pdp_ip0"), "Apple Wi-Fi beats cellular data");
+            Check(AddressScore(false, true, "bridge100") > AddressScore(true, true, "pdp_ip0"), "Apple hotspot beats cellular data");
             Check(AddressScore(true, true, "Ethernet") > AddressScore(false, true, "vEthernet (WSL)"), "Windows routed adapter beats virtual adapter");
             // Real sockets: a beacon arriving on the discovery port becomes a joinable room.
             // An ephemeral port isolates this test from a game already running
