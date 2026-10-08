@@ -61,4 +61,11 @@ namespace Idas3.Multiplayer
         bool ServiceConnected { get; }
     }
 
+    // Connection providers may allocate a route asynchronously before a room
+    // exists. Keep their busy state separate from public-room matchmaking.
+    public interface IIdas3AsyncTransport
+    {
+        bool IsBusy { get; }
+    }
+
 }

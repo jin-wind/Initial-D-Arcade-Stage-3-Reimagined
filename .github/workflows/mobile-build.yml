@@ -53,6 +53,12 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Configure Unity Relay project
+        env:
+          UNITY_PROJECT_ID: ${{ vars.UNITY_PROJECT_ID }}
+          UNITY_ENVIRONMENT: ${{ vars.UNITY_ENVIRONMENT }}
+        run: python3 "Tools/Configure Unity Services.py"
+
       - name: Check Apple build tools
         run: |
           uname -m

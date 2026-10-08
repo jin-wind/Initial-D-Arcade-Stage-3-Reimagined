@@ -28,6 +28,7 @@ public static class Idas3IOSBuild
     public static void RunChecks()
     {
         Idas3TouchControlsTests.Run();
+        Idas3UnityRelayTests.Run();
         Idas3MetalGeometryChecks.Run();
     }
 
@@ -145,6 +146,10 @@ public static class Idas3IOSBuild
         {
             if (!importer.isNativePlugin) continue;
             string path = importer.assetPath.Replace('\\', '/');
+            // Registry packages own their supported architectures/platforms.
+            // Excluding every package would disable Unity Transport's crypto
+            // dependencies (and other platform-aware service plugins).
+            if (path.StartsWith("Packages/com.unity.", StringComparison.Ordinal)) continue;
             if (path.StartsWith("Assets/Plugins/iOS/", StringComparison.Ordinal))
                 Configure(importer, BuildTarget.iOS, "ARM64", false, "", "");
             else if (path.StartsWith("Assets/Plugins/macOS/", StringComparison.Ordinal))

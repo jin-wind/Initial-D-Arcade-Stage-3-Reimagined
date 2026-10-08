@@ -42,6 +42,8 @@ __pycache__/
 ADMIN-ACCESS.txt
 deploy.private.json
 identity.json
+/Assets/Resources/Idas3UnityServices.json
+/Assets/Resources/Idas3UnityServices.json.meta
 .env
 .env.*
 .dev.vars

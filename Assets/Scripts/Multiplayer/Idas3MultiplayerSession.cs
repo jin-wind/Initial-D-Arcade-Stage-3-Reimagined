@@ -162,7 +162,9 @@ namespace Idas3.Multiplayer
         public bool ChallengerPending { get; private set; }
         public event Action ChallengerFound;
         public void CompleteChallengerPresentation(){ChallengerPending=false;}
-        public bool Busy => IsQuickMatching || state == "Connecting" || state == "Loading" || state == "Returning" || (transport is Idas3SteamTransport steam && steam.IsBusy);
+        public bool Busy => IsQuickMatching || state == "Connecting" || state == "Loading" || state == "Returning" ||
+            (transport is IIdas3MatchmakingTransport matchmaking && matchmaking.IsBusy) ||
+            (transport is IIdas3AsyncTransport asynchronous && asynchronous.IsBusy);
         public bool LocalReady => localReady;
         public bool CanReady => HandshakeComplete&&matchAnnounced&&!ChallengerPending&&!nativeRace&&!HasCourseDraw&&!Busy&&
             (IsHost||acknowledgedLocalPlayerSerial>=localSelectionSerial);
@@ -198,7 +200,9 @@ namespace Idas3.Multiplayer
         public string CourseDrawText => HasCourseDraw?"RANDOM SELECTION: "+(CourseWinnerSlot==(IsHost?0:1)?Clean(transport?.LocalName):remoteName)+"'S PICK":"Each driver's course pick has a 50% chance.";
         public int Course => SelectedChoice.Course;
         public int LocalCar { get; private set; }
-        public int TransportIndex { get; private set; } = Idas3PlatformPaths.IsIOS ? 1 : 0;
+        // Preserve the existing Steam/LAN indices used by diagnostics.
+        public const int SteamTransport = 0, LanTransport = 1, InternetTransport = 2;
+        public int TransportIndex { get; private set; } = Idas3PlatformPaths.IsMobile ? InternetTransport : SteamTransport;
         public bool Reverse => SelectedChoice.Reverse;
         public bool Wet => SelectedChoice.Wet;
         public bool Night => SelectedChoice.Night;
@@ -239,8 +243,6 @@ namespace Idas3.Multiplayer
             impairment=new Idas3NetworkImpairment(()=>Now);
             LocalCar=Mathf.Clamp(selectedCar,0,34);
             records=new Idas3MultiplayerRecords(saveRoot??Path.Combine(Application.persistentDataPath,"userdata-unity-scene"));
-            // There is no Steam client on Android or iOS; LAN DIRECT is the only working transport.
-            if(Idas3PlatformPaths.IsMobile)TransportIndex=1;
         }
         public void OpenMenu()
         {
@@ -250,10 +252,19 @@ namespace Idas3.Multiplayer
         public void InitializeOnlinePresence()
         {
             if(DisconnectedFinish)return;
-            if (transport == null) SetTransport(TransportIndex == 0 ? (IIdas3Transport)new Idas3SteamTransport() : new Idas3TcpTransport());
+            if (transport == null) SetTransport(CreateTransport(TransportIndex));
             if (transport is IIdas3MatchmakingTransport matchmaking) matchmaking.BuildCompatibility=Idas3BuildCompatibility.ForMatchmaking(Compatibility())+matchmakingTestScope;
             if (transport is Idas3TcpTransport lan) lan.BuildCompatibility=Idas3BuildCompatibility.ForMatchmaking(Compatibility());
-            if (!Available) { ClearError(); transport.Initialize(); }
+            if (!Available) { ClearError(); if (!transport.Initialize()) status=transport.Status; }
+        }
+        static IIdas3Transport CreateTransport(int index)
+        {
+            switch(index) {
+                case SteamTransport: return new Idas3SteamTransport();
+                case LanTransport: return new Idas3TcpTransport();
+                case InternetTransport: return new Idas3UnityRelayTransport();
+                default: throw new ArgumentOutOfRangeException(nameof(index));
+            }
         }
         void SetTransport(IIdas3Transport next)
         {
@@ -263,10 +274,10 @@ namespace Idas3.Multiplayer
         }
         public void SelectTransport(int index)
         {
-            if (nativeRace || DisconnectedFinish || InLobby || Busy || index < 0 || index > 1 || index == 0 && Idas3PlatformPaths.IsMobile) return;
+            if (nativeRace || DisconnectedFinish || InLobby || Busy || index < 0 || index > InternetTransport || index == SteamTransport && Idas3PlatformPaths.IsMobile) return;
             if (TransportIndex == index && Available) return;
             TransportIndex = index;
-            SetTransport(index == 0 ? (IIdas3Transport)new Idas3SteamTransport() : new Idas3TcpTransport()); OpenMenu();
+            SetTransport(CreateTransport(index)); OpenMenu();
         }
         public void ConfigureLocalTest(int port, string name)
         {

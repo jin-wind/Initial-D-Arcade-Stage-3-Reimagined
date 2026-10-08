@@ -13,6 +13,7 @@ public static class Idas3TouchControlsTests
     public static void BuildAndroid()
     {
         Run();
+        Idas3UnityRelayTests.Run();
         Idas3Build.BuildAndroidArm64();
     }
 }

@@ -360,17 +360,28 @@ namespace Idas3.Multiplayer
             Fill(new Rect(26,y+52,848,1),Edge);
         }
         private void BrowserView(){
-            Activity(116);bool steam=session.TransportIndex==0;bool idle=!session.Busy;float x=26,y=190;
+            Activity(116);bool steam=session.TransportIndex==Idas3MultiplayerSession.SteamTransport;
+            bool internet=session.TransportIndex==Idas3MultiplayerSession.InternetTransport;
+            bool idle=!session.Busy;float x=26,y=190;
             if(ActionButton(new Rect(x,y,232,47),"QUICK MATCH",steam&&session.Available&&idle,true)){session.QuickMatch();if(session.IsQuickMatching)SetOpen(false);}
             if(ActionButton(new Rect(x,y+58,232,47),"HOST A BATTLE",session.Available&&idle))session.HostRoom();
-            if(ActionButton(new Rect(x,y+116,232,47),steam?"JOIN WITH CODE":"JOIN WITH ADDRESS",idle)){joinEntry=true;controllerFocus.Reset();}
+            if(ActionButton(new Rect(x,y+116,232,47),steam||internet?"JOIN WITH CODE":"JOIN WITH ADDRESS",idle)){joinEntry=true;controllerFocus.Reset();}
             if(ActionButton(new Rect(x,y+174,232,47),"BACK TO GAME"))SetOpen(false);
-            if(Idas3PlatformPaths.IsMobile)Text(new Rect(x,438,232,33),"SAME WI-FI OR HOTSPOT",small);
-            else{
-                if(ActionButton(new Rect(x,438,112,33),"STEAM",idle,steam))session.SelectTransport(0);
-                if(ActionButton(new Rect(x+120,438,112,33),"LAN DIRECT",idle,!steam))session.SelectTransport(1);
+            if(Idas3PlatformPaths.IsMobile){
+                if(ActionButton(new Rect(x,438,112,33),"INTERNET",idle,internet))session.SelectTransport(Idas3MultiplayerSession.InternetTransport);
+                if(ActionButton(new Rect(x+120,438,112,33),"LAN",idle,!internet))session.SelectTransport(Idas3MultiplayerSession.LanTransport);
             }
-            if(steam){
+            else{
+                if(ActionButton(new Rect(x,438,72,33),"STEAM",idle,steam))session.SelectTransport(Idas3MultiplayerSession.SteamTransport);
+                if(ActionButton(new Rect(x+78,438,94,33),"INTERNET",idle,internet))session.SelectTransport(Idas3MultiplayerSession.InternetTransport);
+                if(ActionButton(new Rect(x+178,438,54,33),"LAN",idle,!steam&&!internet))session.SelectTransport(Idas3MultiplayerSession.LanTransport);
+            }
+            if(internet){
+                Section(new Rect(280,190,594,286),"PLAY WITH FRIENDS / INTERNET");
+                Text(new Rect(300,245,530,65),"Host a battle and share its room code. Your friend joins with JOIN WITH CODE.",wrapped);
+                Text(new Rect(300,332,530,65),"Wi-Fi or mobile data, including different carriers. Both drivers need the same game version.",wrapped);
+                Text(new Rect(300,423,530,33),"The host keeps the game open while you play.",small);
+            }else if(steam){
                 Section(new Rect(280,190,594,286),"OPEN ROOMS");
                 if(ActionButton(new Rect(736,201,120,28),session.Available?"REFRESH":"RETRY STEAM",idle))session.RefreshRooms();
                 RoomsList(new Rect(299,246,552,198));
@@ -412,15 +423,15 @@ namespace Idas3.Multiplayer
             GUI.EndGroup();Fill(track,Ink);Frame(track,Edge);thumb.y=track.y+(max>0?roomScroll.y/max*(track.height-thumbHeight):0);Fill(thumb,scrollDragging?Red:Muted);
         }
         private void JoinView(){
-            Section(new Rect(26,126,848,350),session.TransportIndex==0?"ROOM CODE":"HOST ADDRESS");
-            Text(new Rect(48,195,790,24),session.TransportIndex==0?"ROOM CODE":"IP ADDRESS:PORT",small);
+            Section(new Rect(26,126,848,350),session.TransportIndex!=Idas3MultiplayerSession.LanTransport?"ROOM CODE":"HOST ADDRESS");
+            Text(new Rect(48,195,790,24),session.TransportIndex!=Idas3MultiplayerSession.LanTransport?"ROOM CODE":"IP ADDRESS:PORT",small);
             GUI.SetNextControlName("idas3-room-code");var old=GUI.backgroundColor;GUI.backgroundColor=Raised;
             joinCode=GUI.TextField(new Rect(48,235,657,48),joinCode,128,field);GUI.backgroundColor=old;
             if(ActionButton(new Rect(719,235,132,48),"EDIT",!session.Busy)){codeDraft=joinCode;codeEditing=true;controllerFocus.Reset();GUI.FocusControl(null);}
             if(ActionButton(new Rect(48,316,803,47),"JOIN BATTLE",session.Available&&!session.Busy&&!string.IsNullOrWhiteSpace(joinCode),true)){session.JoinRoom(joinCode.Trim());joinEntry=false;}
         }
         private void CodeEntryView(){
-            Section(new Rect(26,116,848,400),session.TransportIndex==0?"ENTER ROOM CODE":"ENTER HOST ADDRESS");
+            Section(new Rect(26,116,848,400),session.TransportIndex!=Idas3MultiplayerSession.LanTransport?"ENTER ROOM CODE":"ENTER HOST ADDRESS");
             // Long addresses remain visible at the insertion point.
             Text(new Rect(48,174,805,35),codeDraft.Length>58?"…"+codeDraft.Substring(codeDraft.Length-58)+"_":codeDraft+"_",heading);
             const string characters="1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz.:/-_";
@@ -497,6 +508,10 @@ namespace Idas3.Multiplayer
             Fill(new Rect(26,553,848,1),Edge);
             if(joinEntry){if(ActionButton(new Rect(26,570,220,35),"BACK")){joinEntry=false;controllerFocus.Reset();}return;}
             if(session.IsQuickMatching){if(ActionButton(new Rect(26,570,232,35),"CANCEL SEARCH",true,true))session.CancelQuickMatch();if(ActionButton(new Rect(642,570,232,35),"BACK TO GAME"))SetOpen(false);return;}
+            if(session.TransportIndex==Idas3MultiplayerSession.InternetTransport&&session.Busy&&!session.IsRacing){
+                if(ActionButton(new Rect(26,570,232,35),"CANCEL CONNECTION",true,true))session.LeaveRoom();
+                return;
+            }
             if(MusicSelectionAllowed){if(ActionButton(new Rect(26,567,348,35),"MUSIC  / "+SelectedMusicTitle))MusicSelectionRequested?.Invoke();}
             else Text(new Rect(28,578,370,23),"↑ ↓ SELECT   ENTER / A CONFIRM   ESC / B BACK",small);
             if(!session.InLobby)return;
