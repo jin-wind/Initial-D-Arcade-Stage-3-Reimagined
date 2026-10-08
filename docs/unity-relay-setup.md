@@ -2,12 +2,20 @@
 
 Android 和 iOS 必須使用**同一個 Unity Cloud Project ID、同一個 environment 和相容的遊戲版本**。Unity Editor 授權登入不代表專案已連結 Cloud Project。
 
+## 服務地區限制
+
+Unity [官方公告](https://support.unity.com/hc/en-us/articles/48560161446804-Unity-Services-Access-Ending-June-30-2026-Information-for-China-Based-Developers) 與 [中文 FAQ](https://www.unity.cn/cloud-service-faq) 說明：自 **2026-06-30** 起，註冊地址位於中國內地、香港或澳門的組織不能使用全球版 Relay、Lobby、Matchmaker 等服務；Authentication、IAP 和 Ads 繼續提供。
+
+2026-10-08 實測使用者提供的 Project：匿名登入成功（HTTP 200），但 Relay regions API 回覆 **HTTP 451 / code 53 / Unavailable in your region**。同一 Project 的三平台建置已成功，仍無法開啟網上房間。不能用建置成功或 Authentication 啟用狀態判斷 Relay 是否可用。
+
+如果產品目錄只有 Authentication、Player Management、IAP 和 Ads，請先確認組織服務資格。這可能是服務地區限制，不能直接判定為 Dashboard 導覽改版。組織資料若確實誤標，可依 [官方地址更正流程](https://support.unity.com/hc/en-us/articles/46874716411028-How-to-update-your-organization-s-address-or-country) 修正真實資料；否則需要評估其他可用服務，例如 UOS Sync Relay 或 EOS。替代服務的 SDK、費用及跨區連線需要另外驗證。
+
 ## 1. 建立 Cloud Project
 
 1. 開啟 [Unity Dashboard](https://cloud.unity.com/)，登入自己的 Unity 帳號。
 2. 選擇 Organization，建立此遊戲的 Project。
-3. 在該 Project 的 **Gaming Services / Multiplayer / Relay** 啟用服務；Dashboard 分類名稱可能隨版本不同。
-4. 確認 **Authentication** 可使用。第一版使用 anonymous sign-in，不需要 Google／Apple 登入服務金鑰。
+3. 在服務可用的組織內，依 Dashboard 的 **Multiplayer / Relay** 設定流程啟用服務。若產品不存在，先檢查上述地區限制。
+4. 確認 **Authentication** 可使用。第一版使用 anonymous sign-in，不需要新增 Custom ID 或 Google／Apple 身份提供者；匿名登入本身不需要額外身份提供者設定。
 5. 在 **Project Settings** 複製 **Project ID**（UUID），不是 Organization ID。
 6. 在 **Environments** 確認 `production` 存在；如需隔離開發測試，可建立 `development`，但兩個平台必須指定相同名稱。
 
@@ -57,6 +65,7 @@ python "Tools/Configure Unity Services.py" --project-id "YOUR-PROJECT-UUID" --en
 | 現象 | 檢查 |
 | --- | --- |
 | Internet 顯示未設定 | 此安裝包是否在建置前設定真正 Project ID；設定 variable 後需要重新建置 |
+| Relay HTTP 451 / Unavailable in your region | 組織所屬地區是否仍可使用全球 Relay；重新打包、切換 environment 或新增身份提供者無法解決此限制 |
 | Unity sign-in failed | 網路、Cloud Project、Authentication、environment 是否正確 |
 | Room code not found | 房主是否在線、代碼是否來自同一 Cloud Project 和 environment |
 | 連線逾時 | Relay 是否啟用、用量／服務狀態、網路是否阻擋 UDP/DTLS |

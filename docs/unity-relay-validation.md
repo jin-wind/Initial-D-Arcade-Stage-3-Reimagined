@@ -2,9 +2,47 @@
 
 Date: 2026-10-08. Editor: Unity 6000.6.4f1 on Windows x64 and macOS ARM64.
 
-The first Relay transport, mobile Internet/LAN selection and CI configuration
-staging are implemented. No Unity Cloud Project has been supplied or enabled
-for this game yet. These checks do **not** establish live Relay connectivity.
+The Relay transport, mobile Internet/LAN selection and CI configuration are
+implemented. A user-supplied Unity Cloud Project is now configured, but the live
+Relay service rejects this project's access with HTTP 451. The packages build
+successfully; Internet rooms are blocked by service availability.
+
+## Configured build and live service check
+
+GitHub Actions run [37761114638](https://github.com/jin-wind/Initial-D-Arcade-Stage-3-Reimagined/actions/runs/37761114638)
+successfully built commit `ac376f7fc4e1cb56e02f04f44be5b15c08c87f62` for all
+three targets on 2026-10-08. Repository variables supplied the project's ID
+and `production` environment. All three configuration logs contain
+`Unity Relay build configuration staged.` No project credentials were committed.
+
+| Package | Configured build artifact |
+| --- | --- |
+| Android ARM64 APK | [Download artifact](https://github.com/jin-wind/Initial-D-Arcade-Stage-3-Reimagined/actions/runs/37761114638/artifacts/11544511089) |
+| ARM64 iOS Simulator app ZIP | [Download artifact](https://github.com/jin-wind/Initial-D-Arcade-Stage-3-Reimagined/actions/runs/37761114638/artifacts/11544101581) |
+| ARM64 unsigned iPhone IPA | [Download artifact](https://github.com/jin-wind/Initial-D-Arcade-Stage-3-Reimagined/actions/runs/37761114638/artifacts/11543631716) |
+
+Packages expire on 2026-11-07; diagnostics expire on 2026-10-15. The Android
+verification step passed resource hashing, APK signature and 16 KB alignment
+checks. Both Apple package verification steps passed. Device signing is still
+required for the unsigned iPhone IPA.
+
+A workstation REST probe using the SDK's endpoints and the supplied project
+returned HTTP 200 for anonymous Authentication in `production`. A Relay
+`GET /v1/regions` using the resulting player token returned:
+
+```json
+{"status":451,"code":53,"title":"Unavailable For Legal Reasons","detail":"Unavailable in your region"}
+```
+
+No allocation was created, and no player token was logged or saved. This is a
+live service availability check, not an on-device SDK or gameplay result.
+[Unity's official notice](https://support.unity.com/hc/en-us/articles/48560161446804-Unity-Services-Access-Ending-June-30-2026-Information-for-China-Based-Developers)
+states that organizations registered in Mainland China, Hong Kong or Macau
+lose global Relay access from 2026-06-30, while Authentication remains available.
+The project's actual organization address has not been inspected. Rebuilding
+the same project cannot resolve this service restriction.
+
+## Earlier unconfigured build
 
 GitHub Actions run [37740339166](https://github.com/jin-wind/Initial-D-Arcade-Stage-3-Reimagined/actions/runs/37740339166)
 completed successfully for commit `28b74dd2527407ab96cc93a75d9fffbf8b252bab`
@@ -76,12 +114,13 @@ continuing to exclude desktop Steam/native game plugins from iOS.
 
 - Installation and startup of these exact CI artifacts on physical devices.
 - On-device Relay SDK initialization.
-- Anonymous Authentication, allocation, DTLS bind, or room-code joins against
-  an actual Unity Cloud Project.
+- Anonymous Authentication from a built player, allocation, DTLS bind, or
+  room-code joins. The workstation probe above establishes only REST sign-in
+  and the current Relay access failure.
 - Android/iOS races over real Relay, complete finish/rematch, mobile
   backgrounding, two different carriers, latency/jitter or billable bandwidth.
 
 The earlier LAN cross-play results remain documented separately in
 [mobile-crossplay-validation.md](mobile-crossplay-validation.md). They cannot
-be substituted for these pending internet checks. Continue using
-[unity-relay-setup.md](unity-relay-setup.md) after creating the Cloud Project.
+be substituted for these pending internet checks. Check service eligibility in
+[unity-relay-setup.md](unity-relay-setup.md) before further Internet tests.
