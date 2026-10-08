@@ -1,0 +1,87 @@
+name: EOS service probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [eos-internet]
+    paths:
+      - '.github/workflows/eos-service-probe.yml'
+      - 'Tools/EOSProbe/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eos-service-probe-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  relay:
+    name: EOS relay ${{ matrix.role }}
+    runs-on: windows-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        role: [host, join]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: Tools/EOSProbe
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Download pinned EOS SDK
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $archive = Join-Path $env:RUNNER_TEMP 'com.playeveryware.eos-6.2.0.tgz'
+          $sdkRoot = Join-Path $env:RUNNER_TEMP 'eos-sdk'
+          Invoke-WebRequest -Uri 'https://github.com/EOS-Contrib/eos_plugin_for_unity/releases/download/v6.2.0/com.playeveryware.eos-6.2.0.tgz' -OutFile $archive
+          $expected = 'aafe5a1cc278f2f65e0373777706d0a1028eea49b9548ef4a7520cc50f647c4b'
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) {
+            throw 'EOS SDK archive SHA-256 mismatch.'
+          }
+          New-Item -ItemType Directory -Path $sdkRoot -Force | Out-Null
+          tar -xzf $archive -C $sdkRoot
+          if ($LASTEXITCODE -ne 0) { throw 'EOS SDK archive extraction failed.' }
+
+      - name: Compile official SDK probe
+        shell: pwsh
+        run: |
+          $sdkPackage = Join-Path $env:RUNNER_TEMP 'eos-sdk/package'
+          dotnet build Tools/EOSProbe/EosProbe.csproj --configuration Release "-p:EosPackage=$sdkPackage" --nologo
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Check authenticated lobby and forced relay
+        shell: pwsh
+        env:
+          EOS_PRODUCT_ID: ${{ vars.EOS_PRODUCT_ID }}
+          EOS_SANDBOX_ID: ${{ vars.EOS_SANDBOX_ID }}
+          EOS_DEPLOYMENT_ID: ${{ vars.EOS_DEPLOYMENT_ID }}
+          EOS_CLIENT_ID: ${{ vars.EOS_CLIENT_ID }}
+          EOS_CLIENT_SECRET: ${{ secrets.EOS_CLIENT_SECRET }}
+          EOS_PROBE_ROLE: ${{ matrix.role }}
+          EOS_PROBE_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          foreach ($name in @('EOS_PRODUCT_ID', 'EOS_SANDBOX_ID', 'EOS_DEPLOYMENT_ID', 'EOS_CLIENT_ID', 'EOS_CLIENT_SECRET')) {
+            if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
+              throw "Missing repository configuration: $name"
+            }
+          }
+          New-Item -ItemType Directory -Path Logs -Force | Out-Null
+          # The probe emits only allowlisted diagnostics, never SDK credentials.
+          & './Tools/EOSProbe/bin/Release/net10.0/EosProbe.exe' |
+            Tee-Object -FilePath "Logs/eos-probe-$env:EOS_PROBE_ROLE.jsonl"
+          exit $LASTEXITCODE
+
+      - name: Upload probe report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: eos-probe-${{ matrix.role }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: Logs/eos-probe-*.jsonl
+          retention-days: 7
+          if-no-files-found: ignore

@@ -1,6 +1,8 @@
-# 行動版網際網路聯機：Unity Relay
+# 行動版網際網路聯機：EOS
 
-2026-10-08：採用 Unity Relay 作為第一個外網方案。EOS 保留為未來替代選項；目前未匯入 EOS SDK。
+2026-10-08：使用者選擇改回 EOS。Unity Relay 實際服務回覆 HTTP 451 地區限制，詳見 [Unity 驗證紀錄](unity-relay-validation.md)。EOS 產品設定已保存到 GitHub，Client 憑證驗證取得 HTTP 200；Device ID 登入、大廳和強制中繼仍須實測。後續步驟與平台限制見 [EOS 設定與驗證](eos-setup.md)。
+
+以下保留已實作的 Unity Relay 方案紀錄；目前遊戲尚未切換成 EOS。
 
 ## 玩家體驗
 
