@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Epic.OnlineServices;
 using Epic.OnlineServices.Connect;
 using Epic.OnlineServices.Lobby;
@@ -21,6 +22,12 @@ internal static partial class Program
     private static bool createInFlight;
     private static string phase = "configuration";
     private static readonly Stopwatch total = Stopwatch.StartNew();
+    private static int sdkDiagnosticCount;
+    private static readonly string[] DiagnosticTerms = {
+        "relay", "turn", "auth", "p2p", "signaling", "permission", "scope", "policy",
+        "denied", "forbidden", "unauthorized", "timeout", "connection", "certificate",
+        "network", "socket", "udp", "invalid", "failed", "unavailable", "not configured"
+    };
 
     private static int Main(string[] args)
     {
@@ -38,7 +45,8 @@ internal static partial class Program
             var init = new InitializeOptions { ProductName = "IDAS3 EOS Availability Probe", ProductVersion = "1.0" };
             Expect("initialize", PlatformInterface.Initialize(ref init));
             initialized = true;
-            Expect("loggingOff", LoggingInterface.SetLogLevel(LogCategory.AllCategories, LogLevel.Off));
+            Expect("loggingCallback", LoggingInterface.SetCallback(OnSdkLog));
+            Expect("loggingWarnings", LoggingInterface.SetLogLevel(LogCategory.AllCategories, LogLevel.Warning));
             var options = new Options {
                 ProductId = settings["EOS_PRODUCT_ID"], SandboxId = settings["EOS_SANDBOX_ID"],
                 DeploymentId = settings["EOS_DEPLOYMENT_ID"],
@@ -250,6 +258,22 @@ internal static partial class Program
         phase = step;
         Emit(step, result.ToString());
         if (result != Result.Success) throw new ProbeFailure("OperationFailed");
+    }
+
+    private static void OnSdkLog(ref LogMessage message)
+    {
+        // Extract error identifiers and fixed diagnostic terms, never the SDK's
+        // original text: OAuth/P2P logs may contain credentials or player IDs.
+        if (Interlocked.Increment(ref sdkDiagnosticCount) > 80) return;
+        string text = message.Message ?? "";
+        string category = message.Category ?? "";
+        if (!Regex.IsMatch(category, "^Log[A-Za-z0-9_]{1,40}$")) category = "SDK";
+        var codes = Regex.Matches(text, @"\b(?:EOS_[A-Za-z0-9_]+|errors\.com\.epicgames\.[a-z0-9_.]+)\b")
+            .Select(match => match.Value).Distinct().Take(8).ToArray();
+        var http = Regex.Matches(text, @"(?i)(?:http|status(?:code| code)?|response code)[^0-9\r\n]{0,16}(?<code>[1-5][0-9]{2})\b")
+            .Select(match => match.Groups["code"].Value).Distinct().ToArray();
+        var terms = DiagnosticTerms.Where(term => text.Contains(term, StringComparison.OrdinalIgnoreCase)).ToArray();
+        Emit("sdkDiagnostic", message.Level.ToString(), new { category, codes, http, terms });
     }
 
     private static void Emit(string step, string result, object detail = null) =>

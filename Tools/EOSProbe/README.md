@@ -25,6 +25,8 @@ Ctrl+C requests cancellation and cleanup.
 
 Only structured phase/result diagnostics are printed. Raw SDK logs, credentials,
 tokens, full account IDs, and arbitrary exception messages are not printed.
+SDK warnings are reduced to category, error codes, HTTP status codes and a fixed
+list of diagnostic terms; their original messages are never emitted.
 The SDK cache is scoped to `probe-cache` under the executable directory. EOS may
 persist its Device ID using its normal platform mechanism; the probe never resets
 or deletes that identity.
