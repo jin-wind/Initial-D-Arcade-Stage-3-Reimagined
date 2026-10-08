@@ -2,6 +2,7 @@
 #include "original_math.h"
 #include "original_session_initialization.h"
 #include "original_rival_setup.h"
+#include "original_rollback_digest.h"
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
@@ -81,7 +82,7 @@ std::uint64_t OriginalDrivingSession::rollbackDigest() const {
         const auto bytes=std::as_bytes(std::span(&value,1));
         for(auto byte:bytes){hash^=std::to_integer<unsigned char>(byte);hash*=1099511628211ull;}
     };
-    add(s.vehicle.drive.words);add(s.vehicle.loss);add(s.vehicle.tail);
+    add(s.vehicle.drive.words);add(s.vehicle.loss);add(canonicalRollbackStatistics(s.vehicle.tail));
     add(s.vehicle.transmission);add(s.vehicle.transmissionGlobals);add(s.vehicle.controls);
     add(s.actor.words);add(s.secondaryActor.words);add(s.published);add(s.recovery);add(s.wheels);
     add(s.road.surfaces0CAA9518);add(s.road.sweeps0CAA9618);add(s.road.normals0CAA94C8);

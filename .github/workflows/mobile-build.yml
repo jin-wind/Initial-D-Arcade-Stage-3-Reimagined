@@ -70,7 +70,10 @@ jobs:
           if [ -n "$found" ]; then echo "::error::ROM-like files in the checkout:"; echo "$found"; exit 1; fi
 
       - name: Build native archive and check complete linkage
-        run: bash Tools/build-native-ios.sh "${{ matrix.sdk }}"
+        run: |
+          clang++ -std=c++20 -I Native/src Native/tests/rollback_statistics_digest_tests.cpp -o "$RUNNER_TEMP/rollback-statistics-tests"
+          "$RUNNER_TEMP/rollback-statistics-tests"
+          bash Tools/build-native-ios.sh "${{ matrix.sdk }}"
 
       - name: Stage and verify game data
         shell: pwsh

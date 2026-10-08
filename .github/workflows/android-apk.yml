@@ -54,6 +54,11 @@ jobs:
           found=$(find . -path ./.git -prune -o -type f \( -iname '*.chd' -o -iname '*.cue' -o -iname 'gds-0033*' \) -print)
           if [ -n "$found" ]; then echo "::error::ROM-like files in the checkout:"; echo "$found"; exit 1; fi
 
+      - name: Check rollback statistics checksum
+        run: |
+          g++ -std=c++20 -I Native/src Native/tests/rollback_statistics_digest_tests.cpp -o "$RUNNER_TEMP/rollback-statistics-tests"
+          "$RUNNER_TEMP/rollback-statistics-tests"
+
       - name: Install Android NDK
         run: |
           # Licenses are accepted on GitHub's hosted Android runners. Avoid a

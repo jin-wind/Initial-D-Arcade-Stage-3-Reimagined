@@ -372,7 +372,7 @@ namespace Idas3.Multiplayer
             // the same wire protocol and simulation contract. Bump this
             // canonical identity whenever the authoritative protocol or rules
             // change; platform-specific packaging cannot block cross-play.
-            string complete="idas3-mp10-cross-platform-v1-"+Idas3PlatformPaths.ApplicationVersion;
+            string complete="idas3-mp10-cross-platform-v2-"+Idas3PlatformPaths.ApplicationVersion;
             for(int course=11;course<Idas3CourseCatalog.Count;++course)
                 complete+="-"+course+"-"+SpecialStageFingerprint(Idas3PlatformPaths.RuntimePackPath(Idas3CourseCatalog.Packs[course-9]),Idas3CourseCatalog.Slugs[course-9],course>=12&&course<=14,course==15);
             complete+=ExperimentalAuthority?"-authority1":"-pose1";
