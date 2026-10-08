@@ -48,10 +48,12 @@ input is stored in GitHub Secrets.
    updated a unique test attribute, searched and read it back, and successfully
    destroyed it. The successful run took about 13 seconds. No room was left
    open and no credentials were included in the report.
-3. Relay traffic: two distinct Product User IDs must join the lobby, set
-   `RelayControl.ForceRelays`, and exchange real traffic. Require the connection
-   notification to report `RelayedConnection`; a lobby join alone is not proof
-   of relayed traffic. This check is pending.
+3. Relay traffic: passed in two consecutive attempts on separate Windows
+   GitHub runners. Both distinct Product User IDs joined the lobby, set
+   `RelayControl.ForceRelays`, received `RelayedConnection` notifications and
+   exchanged verified reliable and unreliable 100-byte payloads in both
+   directions. Details and the earlier failed attempt are recorded in
+   [eos-validation.md](eos-validation.md). This is not a mobile gameplay test.
 4. Game integration: implement `IIdas3Transport` using EOS, retaining the
    game's compatibility handshake and rollback simulation. Validate payloads
    up to 4096 bytes with bounded fragmentation; EOS packets are limited to
