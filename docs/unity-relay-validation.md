@@ -6,6 +6,23 @@ The first Relay transport, mobile Internet/LAN selection and CI configuration
 staging are implemented. No Unity Cloud Project has been supplied or enabled
 for this game yet. These checks do **not** establish live Relay connectivity.
 
+GitHub Actions run [37740339166](https://github.com/jin-wind/Initial-D-Arcade-Stage-3-Reimagined/actions/runs/37740339166)
+completed successfully for commit `28b74dd2527407ab96cc93a75d9fffbf8b252bab`
+on 2026-10-08. Android APK, iOS Simulator app, and unsigned iPhone IPA were
+built, verified, and uploaded as workflow artifacts. The package artifacts
+expire on 2026-11-07; diagnostic log artifacts expire on 2026-10-15.
+
+| Package | Artifact |
+| --- | --- |
+| Android ARM64 APK, with game data and without ROM | [Download artifact](https://github.com/jin-wind/Initial-D-Arcade-Stage-3-Reimagined/actions/runs/37740339166/artifacts/11534704686) |
+| iOS Simulator ARM64 app ZIP | [Download artifact](https://github.com/jin-wind/Initial-D-Arcade-Stage-3-Reimagined/actions/runs/37740339166/artifacts/11535158029) |
+| iPhone ARM64 unsigned IPA | [Download artifact](https://github.com/jin-wind/Initial-D-Arcade-Stage-3-Reimagined/actions/runs/37740339166/artifacts/11534342311) |
+
+The build used no `UNITY_PROJECT_ID`, so the packages contain the Relay code
+but are not configured for live Internet rooms. The iPhone IPA is unsigned;
+it cannot be installed on a device until an Apple signing and provisioning
+profile workflow is configured. The Simulator ZIP has an ad-hoc signature.
+
 ## Results
 
 | Check | Android target / Windows Editor | iOS target / Mac Editor |
@@ -57,8 +74,8 @@ continuing to exclude desktop Steam/native game plugins from iOS.
 
 ## Not yet validated
 
-- A fresh APK or IPA with these changes, IL2CPP conversion/linking, installation
-  and on-device Relay SDK initialization.
+- Installation and startup of these exact CI artifacts on physical devices.
+- On-device Relay SDK initialization.
 - Anonymous Authentication, allocation, DTLS bind, or room-code joins against
   an actual Unity Cloud Project.
 - Android/iOS races over real Relay, complete finish/rematch, mobile

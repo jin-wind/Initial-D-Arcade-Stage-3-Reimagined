@@ -5,7 +5,7 @@ name: Mobile builds
 on:
   workflow_dispatch:
   push:
-    branches: [mobile-ci]
+    branches: [mobile-ci, unity-relay]
     tags: ['mobile-v*']
 
 permissions:

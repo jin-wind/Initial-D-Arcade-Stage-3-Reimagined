@@ -36,7 +36,7 @@ python "Tools/Configure Unity Services.py" --project-id "YOUR-PROJECT-UUID" --en
 
 原本 Unity Editor 授權用的 `UNITY_LICENSE`、`UNITY_EMAIL`、`UNITY_PASSWORD` 與 Android signing secrets 繼續保留；不要改成 Relay 設定。
 
-`Mobile builds` 與 `Android APK` workflow 在 Unity 匯入之前執行同一份設定腳本。`mobile-ci` 分支或 `mobile-v*` tag 自動觸發雙平台建置，其餘工作分支可從 **Actions → Mobile builds → Run workflow** 手動選擇。未連結 Cloud Project 的 artifact 不會自動擁有 Internet 功能。
+`Mobile builds` 與 `Android APK` workflow 在 Unity 匯入之前執行同一份設定腳本。推送到 `mobile-ci` 或 `unity-relay` 分支、或建立 `mobile-v*` tag，會自動觸發 Android、iOS 模擬器和 iPhone 三個建置工作；其他工作分支可從 **Actions → Mobile builds → Run workflow** 手動選擇。未連結 Cloud Project 的 artifact 不會自動擁有 Internet 功能。
 
 兩個平台會執行既有 mobile checks 和新增 UTP loopback checks。CI 不使用玩家帳號、不配置真實 Relay 房間。iPhone IPA 簽名與 Apple 開發者設定是獨立工作；Relay 並不取代簽名要求。
 
