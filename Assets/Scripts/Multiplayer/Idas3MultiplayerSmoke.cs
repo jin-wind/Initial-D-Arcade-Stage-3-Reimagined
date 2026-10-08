@@ -12,6 +12,27 @@ namespace Idas3.Multiplayer
     public sealed partial class Idas3MultiplayerSmoke : MonoBehaviour
     {
         private static Idas3MultiplayerSmoke active;
+        private static string[] diagnosticArguments;
+        [Serializable] private sealed class IOSArguments { public string[] args; }
+        private static string[] ReadArguments()
+        {
+            if(diagnosticArguments!=null)return diagnosticArguments;
+            diagnosticArguments=Environment.GetCommandLineArgs();
+            // IL2CPP's iOS player does not expose simctl launch arguments to
+            // managed Environment.GetCommandLineArgs. An explicit, one-shot
+            // file enables the existing isolated test only in a debug player.
+            // Device release builds do not read this file.
+            if(Idas3PlatformPaths.IsIOS&&Debug.isDebugBuild){
+                string path=Path.Combine(Application.persistentDataPath,"idas3-multiplayer-test-arguments.json");
+                if(File.Exists(path)){
+                    var input=JsonUtility.FromJson<IOSArguments>(File.ReadAllText(path));
+                    if(input?.args==null||Array.IndexOf(input.args,"-idas3-multiplayer-smoke")<0)
+                        throw new InvalidDataException("Invalid opt-in multiplayer diagnostic arguments.");
+                    diagnosticArguments=input.args;File.Delete(path);
+                }
+            }
+            return diagnosticArguments;
+        }
         private static string pendingRoot,pendingRole,pendingAddress,pendingPeerRoot;
         private static int pendingPort,pendingCourse;
         private static bool pendingSteamCheck,pendingQuickCheck,pendingPauseCheck,pendingShowcaseCheck,pendingCourseDrawCheck,pendingMusicCheck,pendingDisconnectCheck,pendingReturnCheck,pendingFinishMusicCheck;
@@ -103,15 +124,15 @@ namespace Idas3.Multiplayer
             public Shot[] captures;
             public Progress[] trajectory;
         }
-        private static bool WorldOnly=>Array.IndexOf(Environment.GetCommandLineArgs(),"-idas3-multiplayer-world-only")>=0;
-        private static bool ObserveStartOnly=>Array.IndexOf(Environment.GetCommandLineArgs(),"-idas3-multiplayer-observe-start")>=0;
-        private static bool ChallengerCheck=>Array.IndexOf(Environment.GetCommandLineArgs(),"-idas3-multiplayer-challenger-check")>=0;
+        private static bool WorldOnly=>Array.IndexOf(ReadArguments(),"-idas3-multiplayer-world-only")>=0;
+        private static bool ObserveStartOnly=>Array.IndexOf(ReadArguments(),"-idas3-multiplayer-observe-start")>=0;
+        private static bool ChallengerCheck=>Array.IndexOf(ReadArguments(),"-idas3-multiplayer-challenger-check")>=0;
         private string roomCode;
         private bool peerLeft,menuInputBlocked;
 
         public static bool Configure(ref string saves)
         {
-            var args=Environment.GetCommandLineArgs();int at=Array.IndexOf(args,"-idas3-multiplayer-smoke");
+            var args=ReadArguments();int at=Array.IndexOf(args,"-idas3-multiplayer-smoke");
             if(at<0)return false;
             if(Array.IndexOf(args,"-idas3-scene-smoke")>=0)throw new ArgumentException("Use one scene diagnostic per process.");
             if(at+1>=args.Length)throw new ArgumentException("Multiplayer smoke needs a NEW output directory.");
@@ -225,7 +246,7 @@ namespace Idas3.Multiplayer
         private void Update()
         {
             if(finished)return;
-            if(Array.IndexOf(Environment.GetCommandLineArgs(),"-idas3-multiplayer-profile")>=0){QualitySettings.vSyncCount=0;Application.targetFrameRate=240;}
+            if(Array.IndexOf(ReadArguments(),"-idas3-multiplayer-profile")>=0){QualitySettings.vSyncCount=0;Application.targetFrameRate=240;}
             if(host.Failure!=null){Finish(false,host.Failure);return;}
             double timeout=returnCheck?360:240;
             if(Time.realtimeSinceStartupAsDouble-began>timeout){Finish(false,"Multiplayer diagnostic exceeded "+timeout+" seconds.");return;}
@@ -347,7 +368,7 @@ namespace Idas3.Multiplayer
                 Check(host.Status.simulationTicks==tick,"Offline race advanced under challenger banner");
                 yield return new WaitForSecondsRealtime(.45f);
                 yield return CaptureChallenger("challenge-received");
-                if(Array.IndexOf(Environment.GetCommandLineArgs(),"-idas3-challenger-drop-check")>=0){
+                if(Array.IndexOf(ReadArguments(),"-idas3-challenger-drop-check")>=0){
                     if(role=="join")session.LeaveRoom();
                     yield return Until(()=>!session.HandshakeComplete&&!overlay.Active,10,"Disconnected challenger retained input/modal hold");
                     if(role=="host"){
@@ -367,7 +388,7 @@ namespace Idas3.Multiplayer
             roomCode=session.RoomCode;Phase("car-agreement");
             session.SetCar(role=="host"?0:8);
             yield return Until(CarSelectionAgrees,20,"Both player slots did not agree on car0/car8.");
-            if(Array.IndexOf(Environment.GetCommandLineArgs(),"-idas3-online-boost-check")>=0){
+            if(Array.IndexOf(ReadArguments(),"-idas3-online-boost-check")>=0){
                 session.SetReady(true);
                 yield return Until(()=>session.Players[0].Ready&&session.Players[1].Ready,15,"Boost test readiness did not settle");
                 File.WriteAllText(Path.Combine(root,"boost-ready"),"ready");
@@ -391,19 +412,19 @@ namespace Idas3.Multiplayer
                 yield return Until(()=>session.Players[0].Ready&&session.Players[1].Ready,15,"Collision test readiness did not settle");
                 File.WriteAllText(Path.Combine(root,"collisions-ready"),"ready");
                 yield return Until(()=>File.Exists(Path.Combine(peerRoot,"collisions-ready")),15,"Peer collision readiness missing");
-                bool finalCollisions=Array.IndexOf(Environment.GetCommandLineArgs(),"-idas3-online-collisions-off")<0;
+                bool finalCollisions=Array.IndexOf(ReadArguments(),"-idas3-online-collisions-off")<0;
                 if(role=="host"){
                     session.SetCollisions(false);
                     Check(!session.LocalReady&&!session.Players[1].Ready,"Changing collisions did not clear readiness");
                     yield return Until(()=>File.Exists(Path.Combine(peerRoot,"collisions-off")),15,"Collision OFF not acknowledged");
                     if(finalCollisions)session.SetCollisions(true);
-                    if(Array.IndexOf(Environment.GetCommandLineArgs(),"-idas3-online-boost-off")>=0)session.SetBoost(false);
+                    if(Array.IndexOf(ReadArguments(),"-idas3-online-boost-off")>=0)session.SetBoost(false);
                 }else{
                     yield return Until(()=>!session.CollisionsEnabled&&!session.LocalReady,15,"Host collision OFF/readiness reset not received");
                     session.SetCollisions(true);Check(!session.CollisionsEnabled,"Guest changed host collision rule");
                     File.WriteAllText(Path.Combine(root,"collisions-off"),"off");
                     yield return Until(()=>session.CollisionsEnabled==finalCollisions,15,"Final collision rule not received");
-                    if(Array.IndexOf(Environment.GetCommandLineArgs(),"-idas3-online-boost-off")>=0)
+                    if(Array.IndexOf(ReadArguments(),"-idas3-online-boost-off")>=0)
                         yield return Until(()=>!session.BoostEnabled,15,"Final boost OFF not received");
                 }
                 File.WriteAllText(Path.Combine(root,"rules-final"),"agreed");
@@ -420,7 +441,7 @@ namespace Idas3.Multiplayer
             if(SavedCarCheck){
                 Check(session.Garage.Count>=2&&session.LocalSavedCar.Saved,"Saved garage was not loaded");
                 int model=session.LocalCar;
-                bool secondary=Array.IndexOf(Environment.GetCommandLineArgs(),"-idas3-multiplayer-secondary-car-check")>=0;
+                bool secondary=Array.IndexOf(ReadArguments(),"-idas3-multiplayer-secondary-car-check")>=0;
                 if(secondary){
                     int selection=40+35+model;
                     Idas3OnlineCar selected=null;
@@ -447,10 +468,10 @@ namespace Idas3.Multiplayer
                 session.SetRaceOptions(choice.Course,choice.Reverse,choice.Wet,choice.Night);
                 yield return Until(()=>session.CanReady&&session.RemoteChoice.Equals(choice),20,"Headlight fixture conditions did not synchronize.");
             }
-            var raceArguments=Environment.GetCommandLineArgs();
+            var raceArguments=ReadArguments();
             if(course>=9||Array.IndexOf(raceArguments,"-idas3-multiplayer-reverse")>=0||
                 Array.IndexOf(raceArguments,"-idas3-multiplayer-night")>=0||Array.IndexOf(raceArguments,"-idas3-multiplayer-wet")>=0){
-                var args=Environment.GetCommandLineArgs();
+                var args=ReadArguments();
                 var choice=new Idas3RaceChoice(course,
                     Array.IndexOf(args,"-idas3-multiplayer-reverse")>=0||Array.IndexOf(args,"-hakone-uphill")>=0,
                     course==8||Array.IndexOf(args,"-idas3-multiplayer-wet")>=0||Array.IndexOf(args,"-hakone-wet")>=0,
@@ -567,8 +588,8 @@ namespace Idas3.Multiplayer
         }
         private KeyCode manualKey;
         private ushort manualPad;
-        private bool ManualCheck=>Array.IndexOf(Environment.GetCommandLineArgs(),"-idas3-multiplayer-manual-check")>=0;
-        private bool MirrorCheck=>Array.IndexOf(Environment.GetCommandLineArgs(),"-idas3-multiplayer-mirror-check")>=0;
+        private bool ManualCheck=>Array.IndexOf(ReadArguments(),"-idas3-multiplayer-manual-check")>=0;
+        private bool MirrorCheck=>Array.IndexOf(ReadArguments(),"-idas3-multiplayer-mirror-check")>=0;
         private int Gear()=>Idas3MultiplayerNative.Idas3MultiplayerCurrentGear();
         private IEnumerator VerifyManualShifts(){
             var words=new uint[307];Check(Idas3MultiplayerNative.Idas3MultiplayerReadRaceCar(0,words,307)==1&&words[17]==1,"Online race was not manual");
@@ -585,7 +606,7 @@ namespace Idas3.Multiplayer
             manualPad=0x100;yield return Until(()=>Gear()==1,3,"Rebound controller downshift failed online");manualPad=0;yield return Frames(6);
             File.WriteAllText(Path.Combine(root,"manual-shifts-passed.txt"),"Manual override synchronized; keyboard E/Q and remapped controller shoulder buttons changed actual native gears 1 -> 2 -> 1; held buttons did not repeat.\n");
         }
-        private bool SavedCarCheck=>Array.IndexOf(Environment.GetCommandLineArgs(),"-idas3-multiplayer-saved-cars-check")>=0;
+        private bool SavedCarCheck=>Array.IndexOf(ReadArguments(),"-idas3-multiplayer-saved-cars-check")>=0;
         private void VerifySavedRaceCars(){
             var local=new uint[307];var remote=new uint[307];
             Check(Idas3MultiplayerNative.Idas3MultiplayerReadRaceCar(0,local,307)==1,"Local race profile unavailable");
@@ -808,7 +829,7 @@ namespace Idas3.Multiplayer
                     yield return Until(()=>menu.ResultsPage==1&&menu.CanAcknowledgeReturnToLobby,30,"Second result omitted original points.");
                     File.WriteAllText(Path.Combine(root,"second-points-ready.txt"),session.ResultText);
                     yield return Until(()=>File.Exists(Path.Combine(peerRoot,"second-points-ready.txt")),10,"Peer did not reach second points page.");
-                    if(Array.IndexOf(Environment.GetCommandLineArgs(),"-idas3-multiplayer-waiting-no-check")>=0){
+                    if(Array.IndexOf(ReadArguments(),"-idas3-multiplayer-waiting-no-check")>=0){
                         pulse=13;yield return Until(()=>menu.ResultsPage==2&&menu.CanAcknowledgeReturnToLobby,5,"Second Continue page unavailable.");
                         if(role=="join"){
                             pulse=13;yield return Until(()=>session.LocalContinueRequested,5,"Second guest Yes unavailable.");
@@ -916,7 +937,7 @@ namespace Idas3.Multiplayer
             session.QuickMatch();Phase("quick-match-search");
             yield return Until(()=>session.IsQuickMatching&&session.InLobby&&session.IsHost,35,"Quick Match did not host after finding no compatible rooms.");
             roomCode=session.RoomCode;Phase("quick-match-waiting");
-            if(Array.IndexOf(Environment.GetCommandLineArgs(),"-idas3-online-activity-check")>=0){
+            if(Array.IndexOf(ReadArguments(),"-idas3-online-activity-check")>=0){
                 yield return Until(()=>session.Activity.Available&&session.Activity.Queuing==1,45,"Isolated Steam presence did not count the queuing player.");
                 Check(session.Activity.Online==1&&session.Activity.Racing==0,"Presence counted unrelated Spacewar players or duplicate memberships.");
                 File.WriteAllText(Path.Combine(root,"activity-queuing.json"),JsonUtility.ToJson(session.Activity,true));
@@ -928,12 +949,12 @@ namespace Idas3.Multiplayer
             yield return CaptureMenu("quick-match-waiting");
             session.CancelQuickMatch();yield return Frames(12);
             Check(!session.IsQuickMatching&&!session.InLobby&&!session.IsRacing,"Cancel Search did not leave the hosted lobby.");
-            if(Array.IndexOf(Environment.GetCommandLineArgs(),"-idas3-online-activity-check")>=0){
+            if(Array.IndexOf(ReadArguments(),"-idas3-online-activity-check")>=0){
                 yield return Until(()=>session.Activity.Available&&session.Activity.Online==1&&session.Activity.Queuing==0,45,"Leaving matchmaking did not update Steam presence.");
                 File.WriteAllText(Path.Combine(root,"activity-online.json"),JsonUtility.ToJson(session.Activity,true));
             }
             Phase("quick-match-cancelled");yield return CaptureMenu("quick-match-cancelled");
-            if(Array.IndexOf(Environment.GetCommandLineArgs(),"-idas3-online-activity-check")>=0){
+            if(Array.IndexOf(ReadArguments(),"-idas3-online-activity-check")>=0){
                 // The existing unique quick-smoke build key also isolates this
                 // manual host room from every ordinary player's browser.
                 session.HostRoom();yield return Until(()=>session.InLobby&&session.IsHost,30,"Manual lobby after Quick Match cancel failed.");
@@ -950,7 +971,7 @@ namespace Idas3.Multiplayer
             session.HostRoom();
             yield return Until(()=>session.InLobby&&session.IsHost&&!string.IsNullOrEmpty(session.RoomCode),30,"Steam did not create this diagnostic's host lobby.");
             roomCode=session.RoomCode;
-            if(Array.IndexOf(Environment.GetCommandLineArgs(),"-idas3-multiplayer-profile")>=0){
+            if(Array.IndexOf(ReadArguments(),"-idas3-multiplayer-profile")>=0){
                 var transport=(Idas3SteamTransport)typeof(Idas3MultiplayerSession).GetField("transport",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic).GetValue(session);
                 var costs=transport.DiagnosticMembershipCost();
                 File.WriteAllText(Path.Combine(root,"steam-membership-cost.txt"),string.Format(System.Globalization.CultureInfo.InvariantCulture,
@@ -976,7 +997,7 @@ namespace Idas3.Multiplayer
                 if(count>0&&scope==3&&(flags&32)!=0){++ranges;if((mask&1)!=0)++mainRanges;}
             }
         }
-        private bool MotionCheck=>Array.IndexOf(Environment.GetCommandLineArgs(),"-idas3-multiplayer-motion-check")>=0;
+        private bool MotionCheck=>Array.IndexOf(ReadArguments(),"-idas3-multiplayer-motion-check")>=0;
         [DllImport(Idas3Native.Library,CallingConvention=CallingConvention.Cdecl)]
         private static extern int Idas3MultiplayerMotionSample([Out] double[] values,uint count);
         private readonly List<double[]> motionSamples=new List<double[]>();

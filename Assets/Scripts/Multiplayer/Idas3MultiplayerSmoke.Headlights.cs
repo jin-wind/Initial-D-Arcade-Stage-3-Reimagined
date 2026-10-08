@@ -8,8 +8,8 @@ namespace Idas3.Multiplayer
 {
     public sealed partial class Idas3MultiplayerSmoke
     {
-        private static bool HeadlightsCheck=>Array.IndexOf(Environment.GetCommandLineArgs(),"-idas3-multiplayer-headlights-check")>=0;
-        private static bool HeadlightsNight=>Array.IndexOf(Environment.GetCommandLineArgs(),"-idas3-multiplayer-headlights-night")>=0;
+        private static bool HeadlightsCheck=>Array.IndexOf(ReadArguments(),"-idas3-multiplayer-headlights-check")>=0;
+        private static bool HeadlightsNight=>Array.IndexOf(ReadArguments(),"-idas3-multiplayer-headlights-night")>=0;
         [Serializable] private class HeadlightStage {
             public string name;public bool localOn,remoteOn;public uint localVisible,remoteVisible,localPhase,remotePhase;
             public ulong localTicks,remoteTicks;

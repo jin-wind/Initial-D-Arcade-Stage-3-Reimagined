@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Idas3.Multiplayer {
     public sealed partial class Idas3MultiplayerSmoke {
-        private bool ContactMotionCheck=>Array.IndexOf(Environment.GetCommandLineArgs(),"-idas3-multiplayer-contact-motion-check")>=0;
+        private bool ContactMotionCheck=>Array.IndexOf(ReadArguments(),"-idas3-multiplayer-contact-motion-check")>=0;
         private bool contactHeadingSet;
         private float contactHeading;
         private Vector3 contactCenter;
