@@ -116,3 +116,10 @@ rebuild. Room creation, joining and race traffic remain unverified in the game.
 The earlier Windows probe success predates the currently failing configuration
 and does not override this Android runtime result. The local diagnostic APK is
 not the output of the subsequent full CI rebuild.
+
+The owner updated `EOS_CLIENT_SECRET` at 2026-10-09 14:50:51 UTC. The next
+[build 37947404601](https://github.com/jin-wind/Initial-D-Arcade-Stage-3-Reimagined/actions/runs/37947404601)
+read that update but still received HTTP 401 from Epic before compiling the
+APK. The current blocker is the matching client ID/secret pair, not an APK
+compilation error. Build 37945122078, which had staged the previous credentials,
+was cancelled to avoid producing another artifact with rejected credentials.
