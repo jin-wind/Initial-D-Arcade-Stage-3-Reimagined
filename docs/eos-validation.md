@@ -2,7 +2,8 @@
 
 Date: 2026-10-08. Native SDK: EOS 1.19.2.1, shipped in Epic Online Services
 Plugin for Unity 6.2.0. Test tool: `Tools/EOSProbe`, .NET 10 Windows x64 console.
-The game does not yet contain an EOS transport or an EOS-enabled mobile build.
+This first section records the original desktop probe. The Android game
+integration and its current runtime blocker are recorded below.
 
 ## Credentials, login and lobby permissions
 
@@ -84,3 +85,34 @@ EOS's supplied ARM64 framework is for iPhoneOS. Epic does not support EOS SDK
 testing on iOS Simulator; cross-platform device verification requires a signed
 build on a physical iPhone. See [eos-setup.md](eos-setup.md) for platform and
 credential configuration.
+
+## Android game APK, 2026-10-09
+
+The actual game now has an Android EOS transport behind the existing INTERNET
+menu. [Actions run 37934929850](https://github.com/jin-wind/Initial-D-Arcade-Stage-3-Reimagined/actions/runs/37934929850)
+at commit `5615f3ab35e40960a18e88794fa91403c4b8f150` built the full ARM64 APK:
+2,329,383,553 bytes, including EOS native library with 16 KB ELF alignment.
+The existing APK content/signature checks passed. Both Android 15 emulators
+installed it and reached the game after reusing and verifying the existing
+17,965 runtime data files. The Internet menu displayed EOS RELAY.
+
+Pressing HOST A BATTLE exposed an Android JNI registration issue:
+`UnsatisfiedLinkError` for `EOSLogger.Log`. The SDK Java initialization ran
+before `System.loadLibrary("EOSSDK")` had registered its native methods.
+Commit `1cdf0fba20e721ab2486df8a88203907bb94c7cf` loads the library through the
+game Activity and checks availability before SDK initialization.
+
+A local diagnostic APK recompiles/replaces only that Activity in the successful
+CI game's DEX, retaining other classes, native libraries and resources, and
+uses the existing local signing key. It installed and started successfully.
+HOST A BATTLE no longer crashed; it returned `AuthWrongClient` during Device ID
+creation. The official OAuth endpoint also returned HTTP 401 `invalid_client`
+for the same configuration read in memory from the APK. The client, product,
+sandbox and deployment IDs match current Actions variables. The secret/token
+were not printed or written to diagnostic files.
+
+The next required step is to update the matching EOS client credentials and
+rebuild. Room creation, joining and race traffic remain unverified in the game.
+The earlier Windows probe success predates the currently failing configuration
+and does not override this Android runtime result. The local diagnostic APK is
+not the output of the subsequent full CI rebuild.

@@ -1,5 +1,6 @@
 """Stage EOS for the Android game. The generated client config is not committed."""
 import argparse
+import base64
 import hashlib
 import json
 import os
@@ -8,10 +9,32 @@ import shutil
 import tarfile
 import tempfile
 import urllib.request
+import urllib.error
+import urllib.parse
 
 URL = ('https://github.com/EOS-Contrib/eos_plugin_for_unity/releases/download/'
        'v6.2.0/com.playeveryware.eos-6.2.0.tgz')
 SHA256 = 'aafe5a1cc278f2f65e0373777706d0a1028eea49b9548ef4a7520cc50f647c4b'
+
+
+def check_client(config):
+    # Catch a mismatched client pair before spending time on the full APK.
+    # Only send it to Epic, and never persist or print the returned token.
+    basic = base64.b64encode((config['clientId'] + ':' + config['clientSecret']).encode()).decode()
+    request = urllib.request.Request('https://api.epicgames.dev/auth/v1/oauth/token',
+        data=urllib.parse.urlencode({'grant_type': 'client_credentials', 'deployment_id': config['deploymentId']}).encode(),
+        headers={'Authorization': 'Basic ' + basic, 'Content-Type': 'application/x-www-form-urlencoded'}, method='POST')
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            token = json.loads(response.read())
+            if response.status != 200 or not token.get('access_token'):
+                raise RuntimeError('Epic did not return client authentication.')
+            token.clear()
+    except urllib.error.HTTPError as error:
+        raise RuntimeError(f'Epic rejected the configured EOS client (HTTP {error.code}). Check EOS_CLIENT_ID and EOS_CLIENT_SECRET.') from None
+    except urllib.error.URLError:
+        raise RuntimeError('Could not reach the Epic authentication endpoint.') from None
+    print('Epic accepted the configured EOS client credentials.')
 
 
 def stage(package, root):
@@ -43,6 +66,7 @@ def main():
             if not value:
                 raise RuntimeError('Missing EOS setting: ' + name)
             config[field] = value
+        check_client(config)
     if args.package:
         stage(args.package.resolve(), args.project_root)
     else:
