@@ -1,0 +1,12 @@
+/Assets/EOS_SDK/
+/Assets/EOS_SDK.meta
+/Assets/Plugins/Android/eos-sdk.aar*
+/Library/
+/Temp/
+/Logs/
+/Builds/
+/UserSettings/
+/obj/
+/build/
+probe-config.json
+report.jsonl

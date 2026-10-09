@@ -1,0 +1,114 @@
+name: EOS Android relay probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [eos-internet]
+    paths:
+      - '.github/workflows/eos-android-probe.yml'
+      - 'Tools/EOSMobileProbe/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eos-android-probe-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Android IL2CPP probe
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: Tools/EOSMobileProbe
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Stage verified official SDK
+        run: python Tools/EOSMobileProbe/prepare_sdk.py
+      - name: Build credential-free probe
+        uses: game-ci/unity-builder@v5.0.1
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: Tools/EOSMobileProbe
+          unityVersion: 6000.6.4f1
+          targetPlatform: Android
+          buildMethod: ProbeBuild.BuildAndroid
+          versioning: None
+          allowDirtyBuild: true
+      - name: Verify probe payload
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, json, zipfile
+          apk = Path('Tools/EOSMobileProbe/Builds/Android/Idas3EosProbe.apk')
+          with zipfile.ZipFile(apk) as archive:
+              names = archive.namelist()
+              for abi in ('arm64-v8a', 'x86_64'):
+                  for library in ('libEOSSDK.so', 'libil2cpp.so', 'libunity.so'):
+                      assert f'lib/{abi}/{library}' in names, (abi, library)
+              assert not any('probe-config' in name for name in names)
+          print(json.dumps({'bytes': apk.stat().st_size, 'sha256': hashlib.sha256(apk.read_bytes()).hexdigest()}))
+          PY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: eos-android-probe-${{ github.sha }}
+          path: Tools/EOSMobileProbe/Builds/Android/Idas3EosProbe.apk
+          compression-level: 0
+          retention-days: 7
+          if-no-files-found: error
+
+  relay:
+    name: Android relay ${{ matrix.role }}
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        role: [host, join]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: Tools/EOSMobileProbe
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - uses: actions/download-artifact@v8
+        with:
+          name: eos-android-probe-${{ github.sha }}
+          path: probe-apk
+      - name: Enable emulator KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Validate Android login lobby and forced relay
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          EOS_PRODUCT_ID: ${{ vars.EOS_PRODUCT_ID }}
+          EOS_SANDBOX_ID: ${{ vars.EOS_SANDBOX_ID }}
+          EOS_DEPLOYMENT_ID: ${{ vars.EOS_DEPLOYMENT_ID }}
+          EOS_CLIENT_ID: ${{ vars.EOS_CLIENT_ID }}
+          EOS_CLIENT_SECRET: ${{ secrets.EOS_CLIENT_SECRET }}
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          script: python Tools/EOSMobileProbe/run_android.py --apk probe-apk/Idas3EosProbe.apk --role ${{ matrix.role }} --run-id android-${{ github.run_id }}-${{ github.run_attempt }} --report Logs/eos-android-${{ matrix.role }}.jsonl
+      - name: Upload sanitized runtime report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: eos-android-${{ matrix.role }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: Logs/eos-android-*.jsonl
+          retention-days: 7
+          if-no-files-found: ignore

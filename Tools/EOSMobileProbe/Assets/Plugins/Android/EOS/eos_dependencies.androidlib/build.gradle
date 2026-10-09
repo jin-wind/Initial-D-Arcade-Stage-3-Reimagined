@@ -1,0 +1,32 @@
+apply plugin: 'com.android.library'
+
+android {
+    namespace 'com.pew.eos_dependencies'
+
+    sourceSets {
+        main {
+            manifest.srcFile 'AndroidManifest.xml'
+            res.srcDirs = ['res']
+        }
+    }
+
+    compileSdk 36
+    defaultConfig {
+        minSdk 26
+        targetSdk 36
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+        coreLibraryDesugaringEnabled true
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.5.1'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation 'androidx.security:security-crypto:1.0.0'
+    implementation 'androidx.browser:browser:1.4.0'
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.3'
+}

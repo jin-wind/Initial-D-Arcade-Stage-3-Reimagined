@@ -1,0 +1,4 @@
+<resources>
+    <!-- Device ID authentication does not use an Epic Account login redirect. -->
+    <string name="eos_login_protocol_scheme">eos.idas3probe</string>
+</resources>
