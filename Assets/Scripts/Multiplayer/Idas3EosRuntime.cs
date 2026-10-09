@@ -48,6 +48,9 @@ namespace Idas3.Multiplayer
 
         void Initialize()
         {
+            using (var bridge = new AndroidJavaClass("com.idas3.unity.Idas3Activity"))
+                if (!bridge.CallStatic<bool>("ensureEosLibraryLoaded"))
+                    throw new InvalidOperationException("EOS Android library could not be loaded. Use a supported device and APK.");
             using (var player = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
             using (var activity = player.GetStatic<AndroidJavaObject>("currentActivity"))
             using (var eos = new AndroidJavaClass("com.epicgames.mobile.eossdk.EOSSDK"))

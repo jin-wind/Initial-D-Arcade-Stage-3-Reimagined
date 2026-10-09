@@ -21,6 +21,26 @@ public final class Idas3Activity extends UnityPlayerActivity {
     private static final int ROM_REQUEST = 193031;
     private static String callbackObject;
 
+    // Loading through the application's class loader registers the SDK's JNI
+    // methods. A later C# P/Invoke dlopen alone does not do that registration.
+    public static boolean ensureEosLibraryLoaded() {
+        try {
+            Class.forName("com.epicgames.mobile.eossdk.EOSSDK", false, Idas3Activity.class.getClassLoader());
+            System.loadLibrary("EOSSDK");
+            return true;
+        } catch (ClassNotFoundException unavailable) {
+            return false;
+        } catch (UnsatisfiedLinkError unavailable) {
+            android.util.Log.e("IDAS3_EOS", "EOS native library could not be loaded");
+            return false;
+        }
+    }
+
+    @Override protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        ensureEosLibraryLoaded();
+    }
+
     public static void openRomPicker(String objectName) {
         Activity activity = UnityPlayer.currentActivity;
         if (activity == null) return;

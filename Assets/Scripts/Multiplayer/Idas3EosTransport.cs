@@ -349,7 +349,7 @@ namespace Idas3.Multiplayer
         {
             if (error is TimeoutException) return "Internet request timed out. Check your network and try again.";
             if (error is InvalidOperationException) return error.Message;
-            return "Internet connection failed. Check your network and try again.";
+            return "Internet connection failed (" + error.GetType().Name + "). Check your network and try again.";
         }
         void Fail(string reason) { Close(false); Status = reason; Debug.LogWarning("IDAS3_EOS " + reason); Error?.Invoke(reason); }
         public void Leave() { Close(true); Status = "Internet ready. Create a new room or enter a room code."; }
