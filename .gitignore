@@ -44,6 +44,15 @@ deploy.private.json
 identity.json
 /Assets/Resources/Idas3UnityServices.json
 /Assets/Resources/Idas3UnityServices.json.meta
+/Assets/Resources/Idas3EOS.json
+/Assets/Resources/Idas3EOS.json.meta
+/Assets/EOS_SDK/
+/Assets/EOS_SDK.meta
+/Assets/Plugins/Android/eos-sdk.aar*
+/Assets/Plugins/Android/EOS/
+/Assets/Plugins/Android/EOS.meta
+/Assets/csc.rsp
+/Assets/csc.rsp.meta
 .env
 .env.*
 .dev.vars

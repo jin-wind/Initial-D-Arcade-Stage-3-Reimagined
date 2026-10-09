@@ -29,6 +29,17 @@ public sealed class Idas3AndroidGradle : IPostGenerateGradleAndroidProject
         content = SetProperty(content, "systemProp.org.gradle.internal.http.connectionTimeout", "30000");
         content = SetProperty(content, "systemProp.org.gradle.internal.http.socketTimeout", "60000");
         File.WriteAllText(properties, content, new UTF8Encoding(false));
+#if IDAS3_EOS
+        // EOS's AndroidX security dependency requires Java library desugaring
+        // in the final application, not just its dependency library.
+        string launcherBuild = Path.Combine(root, "launcher", "build.gradle");
+        string launcher = File.ReadAllText(launcherBuild);
+        if (!launcher.Contains("// IDAS3: EOS desugaring"))
+            File.AppendAllText(launcherBuild, "\n// IDAS3: EOS desugaring\n" +
+                "android { compileOptions { coreLibraryDesugaringEnabled true } }\n" +
+                "dependencies { coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.3' }\n",
+                new UTF8Encoding(false));
+#endif
         // AGP's local lint AAR includes all raw assets, even when the final APK
         // compresses them. Allow ZIP64 only for this diagnostic intermediary;
         // Android APKs must remain ordinary ZIP32 archives.

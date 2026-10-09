@@ -262,7 +262,12 @@ namespace Idas3.Multiplayer
             switch(index) {
                 case SteamTransport: return new Idas3SteamTransport();
                 case LanTransport: return new Idas3TcpTransport();
-                case InternetTransport: return new Idas3UnityRelayTransport();
+                case InternetTransport:
+#if IDAS3_EOS && UNITY_ANDROID
+                    return new Idas3EosTransport();
+#else
+                    return new Idas3UnityRelayTransport();
+#endif
                 default: throw new ArgumentOutOfRangeException(nameof(index));
             }
         }

@@ -12,7 +12,7 @@ on:
   workflow_call:
   workflow_dispatch:
   push:
-    branches: [android-ci]
+    branches: [android-ci, eos-internet]
     tags: ['android-v*']
 
 concurrency:
@@ -52,6 +52,16 @@ jobs:
           UNITY_PROJECT_ID: ${{ vars.UNITY_PROJECT_ID }}
           UNITY_ENVIRONMENT: ${{ vars.UNITY_ENVIRONMENT }}
         run: python3 "Tools/Configure Unity Services.py"
+
+      - name: Stage EOS Android game client
+        if: vars.EOS_PRODUCT_ID != ''
+        env:
+          EOS_PRODUCT_ID: ${{ vars.EOS_PRODUCT_ID }}
+          EOS_SANDBOX_ID: ${{ vars.EOS_SANDBOX_ID }}
+          EOS_DEPLOYMENT_ID: ${{ vars.EOS_DEPLOYMENT_ID }}
+          EOS_CLIENT_ID: ${{ vars.EOS_CLIENT_ID }}
+          EOS_CLIENT_SECRET: ${{ secrets.EOS_CLIENT_SECRET }}
+        run: python3 Tools/prepare-eos-android.py
 
       # The ROM is supplied by each player on first launch; it must never be
       # built into a CI artifact.
