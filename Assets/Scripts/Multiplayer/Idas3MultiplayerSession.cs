@@ -143,7 +143,7 @@ namespace Idas3.Multiplayer
         bool localReady, remoteReady, nativeRace, remoteLoaded, releaseAck, disposing, leaving, helloSent, finishSent, resultSent, polling;
         bool remoteFinished, remoteTimeUp;
         ulong remoteFinishTicks;
-        double lastHeard, lastPing, lastPose, releaseAt, operationAt, peerOffset, bestRtt = double.MaxValue;
+        double lastHeard, lastPing, lastPose, releaseAt, lastReleaseSend, operationAt, peerOffset, bestRtt = double.MaxValue;
         double lastPingStamp, previousPoseAt, newestPoseAt;
         Idas3CarSnapshot previousPose;
         readonly Idas3CarSnapshot[] poseBuffer = new Idas3CarSnapshot[8];
@@ -506,7 +506,12 @@ namespace Idas3.Multiplayer
                         ulong startId=r.ReadUInt64();double hostAt=r.ReadDouble();
                         if(startId!=raceId)break;
                         Require(!IsHost&&nativeRace&&!RaceReleased&&Finite(hostAt)&&bestRtt<2,"Invalid start synchronization.");
-                        releaseAt=hostAt-peerOffset;Require(releaseAt>Now-.1&&releaseAt<Now+10,"Start synchronization arrived outside the allowed window. Please retry.");
+                        double targetRelease=hostAt-peerOffset;
+                        // EOS relay delivery can repeat or delay a reliable
+                        // start packet. Once the countdown was accepted,
+                        // acknowledge duplicates without restarting its clock.
+                        if(state=="Countdown"&&Finite(releaseAt)&&Math.Abs(releaseAt-targetRelease)<2){Send(Packet.ReleaseAck,w=>w.Write(raceId));break;}
+                        releaseAt=targetRelease;Require(releaseAt>Now-1&&releaseAt<Now+10,"Start synchronization arrived outside the allowed window. Please retry.");
                         state="Countdown";Send(Packet.ReleaseAck,w=>w.Write(raceId));break;
                     case Packet.ReleaseAck:
                         if(r.ReadUInt64()==raceId) {Require(IsHost&&nativeRace,"Unexpected start acknowledgement.");releaseAck=true;}break;
@@ -735,8 +740,11 @@ namespace Idas3.Multiplayer
             if(nativeRace&&!RaceReleased) {
                 if(now-operationAt>65) {Fail("The second driver did not finish loading the race.");return;}
                 if(IsHost&&remoteLoaded&&releaseAt==0&&bestRtt<2) {
-                    releaseAt=now+Math.Max(1.0,bestRtt*4);state="Countdown";
+                    releaseAt=now+Math.Max(5.0,bestRtt*10);lastReleaseSend=now;state="Countdown";
                     Send(Packet.Release,w=>{w.Write(raceId);w.Write(releaseAt);});
+                }
+                if(IsHost&&remoteLoaded&&releaseAt>0&&!releaseAck&&now-lastReleaseSend>=.5) {
+                    lastReleaseSend=now;Send(Packet.Release,w=>{w.Write(raceId);w.Write(releaseAt);});
                 }
                 if(DisconnectedFinish)return;
                 if(releaseAt>0&&now>=releaseAt) {
