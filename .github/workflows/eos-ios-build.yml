@@ -1,0 +1,276 @@
+# Real, unsigned device build. Existing Simulator/non-EOS workflows stay separate.
+# Only an explicitly marked development push or manual dispatch starts a build.
+# Uses standard hosted runners only; there is no larger-runner fallback.
+name: iOS EOS unsigned device build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, feature/ios-eos-crossplay]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eos-ios-build-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  preflight:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[ios-eos-ci]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check existing Unity secret availability without printing values
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        run: |
+          missing=""
+          [ -n "$UNITY_LICENSE" ] || missing="$missing UNITY_LICENSE"
+          [ -n "$UNITY_EMAIL" ] || missing="$missing UNITY_EMAIL"
+          [ -n "$UNITY_PASSWORD" ] || missing="$missing UNITY_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing existing Actions secrets:$missing. No macOS build started."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout: |
+            Assets/Editor
+            Tools
+            Tests/Multiplayer
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Check EOS staging and package rejection paths
+        run: python3 Tests/Multiplayer/test_eos_ios_build.py
+
+  device:
+    needs: preflight
+    runs-on: macos-26
+    timeout-minutes: 240
+    env:
+      UNITY_VERSION: 6000.6.4f1
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      IDAS3_IOS_OUTPUT: Builds/iOS-EOS-Device
+      JOBS: 2
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Check source, Apple tools and available space
+        run: |
+          mkdir -p Logs Builds/iOS-EOS-Artifacts
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          grep -qx "m_EditorVersion: $UNITY_VERSION" ProjectSettings/ProjectVersion.txt
+          test "$(uname -m)" = arm64
+          test -d "$DEVELOPER_DIR"
+          command -v cmake
+          command -v pwsh
+          {
+            printf 'Source commit: %s\nRun: %s\nAttempt: %s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
+            printf 'Unity: %s\n' "$UNITY_VERSION"
+            printf 'Runner image: %s / %s\n' "$ImageOS" "$ImageVersion"
+            sw_vers
+            xcodebuild -version
+            xcrun --sdk iphoneos --show-sdk-version
+            cmake --version
+            python3 --version
+            df -h .
+          } | tee Logs/ios-eos-toolchain.txt
+          # Fail rather than silently turn the compile/package check into a live
+          # service-configured app. No EOS_CLIENT_SECRET is referenced anywhere.
+          test -z "$(find Assets -type f -iname 'Idas3EOS.json' -print)"
+          found=$(find . -path ./.git -prune -o -type f \( -iname '*.chd' -o -iname '*.cue' -o -iname 'gds-0033*' \) -print)
+          if [ -n "$found" ]; then
+            echo "::error::ROM-like files found; refusing to build."
+            exit 1
+          fi
+          # Conservative post-checkout budget: ~12.2 GiB installed Unity/iOS,
+          # ~5.5 GiB downloads, ~12 GiB import/export/native intermediates, and
+          # ~5 GiB IPA/headroom. Clones still need space for changed/new data.
+          python3 - <<'PY' | tee Logs/ios-eos-space.log
+          import shutil
+          free = shutil.disk_usage('.').free
+          needed = 35 * 1024 ** 3
+          print(f'Post-checkout free space: {free / 1024 ** 3:.2f} GiB; required: 35.00 GiB')
+          if free < needed:
+              print('::error::Insufficient free space for the conservative full-game iOS build budget. '
+                    'Stopping before SDK/Unity downloads or native compilation; no larger-runner fallback.')
+              raise SystemExit(1)
+          PY
+
+      - name: Stage hash-pinned EOS iPhoneOS framework without service credentials
+        timeout-minutes: 10
+        run: python3 Tools/prepare-eos-ios.py
+
+      - name: Build native ARM64 device archive and force-load link check
+        timeout-minutes: 45
+        run: |
+          set -o pipefail
+          clang++ -std=c++20 -I Native/src Native/tests/rollback_statistics_digest_tests.cpp -o "$RUNNER_TEMP/rollback-statistics-tests"
+          "$RUNNER_TEMP/rollback-statistics-tests"
+          bash Tools/build-native-ios.sh iphoneos 2>&1 | tee Logs/ios-eos-native.log
+
+      - name: Clone and hash game data without full-copy fallback
+        timeout-minutes: 30
+        run: |
+          # cp -c is best-effort and can silently copy instead. Call clonefile
+          # per regular file so unsupported cloning fails without duplication.
+          python3 - <<'PY'
+          import ctypes, os, subprocess, sys
+          from pathlib import Path
+          if sys.platform != 'darwin':
+              raise RuntimeError('This staging step requires macOS file cloning')
+          clonefile = ctypes.CDLL('/usr/lib/libSystem.B.dylib', use_errno=True).clonefile
+          clonefile.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int]
+          clonefile.restype = ctypes.c_int
+          def clone_tree(source, target):
+              source, target = Path(source), Path(target)
+              if source.is_symlink() or not source.is_dir():
+                  raise RuntimeError('Expected a plain source directory: ' + str(source))
+              paths = sorted(source.rglob('*'))
+              if any(p.is_symlink() or not (p.is_file() or p.is_dir()) for p in paths):
+                  raise RuntimeError('Source contains links or special files: ' + str(source))
+              target.mkdir(parents=True, exist_ok=False)
+              count = 0
+              for path in paths:
+                  destination = target / path.relative_to(source)
+                  if path.is_dir():
+                      destination.mkdir()
+                  elif clonefile(os.fsencode(path), os.fsencode(destination), 0) != 0:
+                      error = ctypes.get_errno()
+                      raise OSError(error, 'clonefile failed; no full-copy fallback: ' + os.strerror(error), str(path))
+                  else:
+                      count += 1
+              print(f'Cloned {count} files: {source} -> {target}', flush=True)
+          clone_tree('Native/data', 'Assets/StreamingAssets/IDAS3/data')
+          subprocess.run(['pwsh', '-NoLogo', '-NoProfile', '-NonInteractive', '-File',
+                          'Tools/Stage-GameData.ps1', '-DestinationRoot', 'Assets/StreamingAssets/IDAS3',
+                          '-ManifestPath', 'Staging/android-game-data-manifest.json'], check=True)
+          # The base stager rejects unexpected files, so append RuntimeAssets
+          # only after its complete source/hash checks have passed.
+          clone_tree('RuntimeAssets', 'Assets/StreamingAssets/IDAS3/data/RuntimeAssets')
+          subprocess.run(['pwsh', '-NoLogo', '-NoProfile', '-NonInteractive', '-File',
+                          'Tools/Stage Android Assets.ps1'], check=True)
+          PY
+
+      - name: Export checked EOS device player with Unity and IL2CPP
+        timeout-minutes: 150
+        uses: game-ci/unity-builder@v5.0.1
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          unityVersion: ${{ env.UNITY_VERSION }}
+          targetPlatform: iOS
+          buildMethod: Idas3IOSBuild.BuildDeviceEosChecked
+          customParameters: -job-worker-count 2
+          versioning: None
+          allowDirtyBuild: true
+          # Avoid a large installation cache or unbounded cache-save post-step.
+          cacheUnityInstallationOnMac: false
+
+      - name: Compile unsigned iPhoneOS app and verify actual payload
+        timeout-minutes: 60
+        run: |
+          set -o pipefail
+          test -f "$IDAS3_IOS_OUTPUT/Unity-iPhone.xcodeproj/project.pbxproj"
+          test ! -e Assets/Resources/Idas3EOS.json
+          xcodebuild -project "$IDAS3_IOS_OUTPUT/Unity-iPhone.xcodeproj" \
+            -target Unity-iPhone -configuration Release -sdk iphoneos -arch arm64 -jobs 2 \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY= \
+            "CONFIGURATION_BUILD_DIR=$GITHUB_WORKSPACE/Builds/iOS-EOS-Products" \
+            build 2>&1 | tee Logs/ios-eos-xcode.log
+          app=Builds/iOS-EOS-Products/InitialDUnity.app
+          version=$(sed -n 's/^  bundleVersion: //p' ProjectSettings/ProjectSettings.asset)
+          test -n "$version"
+          python3 "Tools/Verify iOS App.py" "$app" --sdk iphoneos --eos --version "$version" \
+            | tee Logs/ios-eos-verification.log
+          # Keep native dependency evidence without mistaking it for launch proof.
+          otool -L "$app/Frameworks/UnityFramework.framework/UnityFramework" > Logs/ios-eos-unity-dependencies.txt
+          otool -L "$app/Frameworks/EOSSDK.framework/EOSSDK" > Logs/ios-eos-sdk-dependencies.txt
+
+      - name: Package unsigned IPA and verify every archived file
+        timeout-minutes: 30
+        run: |
+          app=Builds/iOS-EOS-Products/InitialDUnity.app
+          mkdir -p Builds/iOS-EOS-Payload/Payload
+          cp -cR "$app" Builds/iOS-EOS-Payload/Payload/
+          ditto -c -k --norsrc Builds/iOS-EOS-Payload Builds/iOS-EOS-Artifacts/InitialDUnity-EOS-iPhone-unsigned.ipa
+          python3 - <<'PY'
+          import hashlib, json, os, zipfile
+          from pathlib import Path
+          app = Path('Builds/iOS-EOS-Products/InitialDUnity.app')
+          out = Path('Builds/iOS-EOS-Artifacts')
+          ipa = out / 'InitialDUnity-EOS-iPhone-unsigned.ipa'
+          def digest(stream):
+              return hashlib.file_digest(stream, 'sha256').hexdigest()
+          expected = {'Payload/InitialDUnity.app/' + str(p.relative_to(app)): p
+                      for p in app.rglob('*') if p.is_file()}
+          with zipfile.ZipFile(ipa) as archive:
+              entries = [entry for entry in archive.infolist() if not entry.is_dir()]
+              if len(entries) != len(expected) or {e.filename for e in entries} != set(expected):
+                  raise RuntimeError('IPA file list differs from the verified app')
+              for entry in entries:
+                  with archive.open(entry) as packed, expected[entry.filename].open('rb') as original:
+                      if digest(packed) != digest(original):
+                          raise RuntimeError('IPA file differs: ' + entry.filename)
+          with ipa.open('rb') as stream:
+              sha = digest(stream)
+          report = {'schema': 1, 'passed': True, 'sourceCommit': os.environ['GITHUB_SHA'],
+                    'runId': os.environ['GITHUB_RUN_ID'], 'runAttempt': os.environ['GITHUB_RUN_ATTEMPT'],
+                    'unityVersion': os.environ['UNITY_VERSION'], 'sdk': 'iphoneos',
+                    'eosServiceConfigured': False, 'distributionSigned': False,
+                    'deviceOrNetworkTested': False, 'filesVerified': len(expected),
+                    'ipa': ipa.name, 'ipaBytes': ipa.stat().st_size, 'ipaSha256': sha}
+          (out / 'ipa-verification.json').write_text(json.dumps(report, indent=2) + '\n')
+          (out / 'SHA256SUMS').write_text(sha + '  ' + ipa.name + '\n')
+          print(json.dumps(report, indent=2))
+          PY
+          cp "${app%.app}.verification.json" Builds/iOS-EOS-Artifacts/
+          cp Logs/ios-eos-toolchain.txt Builds/iOS-EOS-Artifacts/
+          printf '%s\n' 'Unsigned EOS iPhoneOS compile/package verification passed.' \
+            'No EOS service credentials are packaged; physical-device/network testing is still required.' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload only the verified unsigned package and evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: InitialDUnity-eos-iphoneos-${{ github.sha }}-${{ github.run_attempt }}
+          path: Builds/iOS-EOS-Artifacts/
+          compression-level: 0
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Upload bounded build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ios-eos-build-logs-${{ github.sha }}-${{ github.run_attempt }}
+          # Deliberately exclude home directories, license/activation files and
+          # arbitrary GameCI artifacts. Unity's step output stays in Actions logs.
+          path: |
+            Logs/ios-eos-*.log
+            Logs/ios-eos-*.txt
+            Logs/touch-controls-tests.json
+            Builds/iOS-EOS-Products/InitialDUnity.verification.json
+          retention-days: 7
+          if-no-files-found: ignore

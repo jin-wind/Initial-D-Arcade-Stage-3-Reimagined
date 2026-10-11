@@ -45,7 +45,44 @@ def macho_platform(path):
     return platforms[0]
 
 
-def verify(app, sdk, expected_version=None):
+def verify_eos(app, sdk, expected, errors):
+    """Check requested device EOS payload; ordinary/Simulator apps must exclude it."""
+    marker = app / "Data/Raw/ios-eos-build-id.json"
+    frameworks = list(app.rglob("EOSSDK.framework"))
+    if not expected:
+        if frameworks or marker.exists():
+            errors.append("Unexpected EOS payload in an ordinary/Simulator app")
+        return {"expected": False, "present": bool(frameworks)}
+    if sdk != "iphoneos":
+        errors.append("EOS is unsupported in iOS Simulator builds")
+    binary = app / "Frameworks/EOSSDK.framework/EOSSDK"
+    if frameworks != [binary.parent] or not binary.is_file():
+        errors.append("Expected exactly one EOS framework embedded at app Frameworks/EOSSDK.framework")
+        return {"expected": True, "present": bool(frameworks)}
+    if not marker.is_file():
+        errors.append("Missing EOS build manifest")
+    else:
+        manifest = json.loads(marker.read_text())
+        if (manifest.get("schema") != 1 or manifest.get("sdk") != "iphoneos" or
+                manifest.get("architectures") != ["arm64"] or manifest.get("eosVersion") != "1.19.2.1" or
+                manifest.get("binarySha256") != "702f3e930258f06b7d55a74c91d9750f8b325fa2c2c3a656f6bcb7c2c3bc152b"):
+            errors.append("Unexpected EOS SDK manifest")
+    for name in ("license.txt", "ThirdPartySoftwareNotice.txt"):
+        if not (app / "Data/Raw/EOS-Notices" / name).is_file():
+            errors.append("Missing EOS notice: " + name)
+    with (binary.parent / "Info.plist").open("rb") as stream:
+        info = plistlib.load(stream)
+    if info.get("CFBundleSupportedPlatforms") != ["iPhoneOS"] or info.get("CFBundleExecutable") != "EOSSDK":
+        errors.append("EOS framework plist is not for iPhoneOS")
+    platform = macho_platform(binary)
+    if platform != 2:
+        errors.append("EOS framework is not an ARM64 iPhoneOS binary")
+    # Signing can change Mach-O bytes. Report the final hash, do not compare it
+    # to the unsigned SDK hash validated before the Xcode export.
+    return {"expected": True, "present": True, "platform": platform, "sha256": digest(binary)}
+
+
+def verify(app, sdk, expected_version=None, expect_eos=False):
     app = app.resolve(strict=True)
     report = {"app": str(app), "sdk": sdk, "errors": []}
     errors = report["errors"]
@@ -58,6 +95,7 @@ def verify(app, sdk, expected_version=None):
         errors.append("Unexpected bundle identifier")
     expected_platform = 7 if sdk == "iphonesimulator" else 2
     report["binaries"] = {}
+    report["eos"] = verify_eos(app, sdk, expect_eos, errors)
     executable = info.get("CFBundleExecutable", "")
     if not executable or Path(executable).name != executable:
         raise ValueError("Invalid CFBundleExecutable")
@@ -122,5 +160,6 @@ if __name__ == "__main__":
     parser.add_argument("app", type=Path)
     parser.add_argument("--sdk", choices=("iphoneos", "iphonesimulator"), required=True)
     parser.add_argument("--version", help="Full release label expected by Android peers")
+    parser.add_argument("--eos", action="store_true", help="Require the EOS iPhoneOS framework and build marker")
     args = parser.parse_args()
-    raise SystemExit(0 if verify(args.app, args.sdk, args.version) else 1)
+    raise SystemExit(0 if verify(args.app, args.sdk, args.version, args.eos) else 1)

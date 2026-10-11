@@ -3,7 +3,9 @@
 EOS is the selected Internet transport provider as of 2026-10-08. Android
 builds staged with `Tools/prepare-eos-android.py` now use the EOS adapter for
 the game's INTERNET option. LAN remains available. Unstaged builds and the
-current iOS builds retain the previous Unity Relay adapter. See
+ordinary iOS builds retain the previous Unity Relay adapter. An opt-in iPhoneOS
+EOS source/build path is now available; see [iOS EOS integration](ios-eos-integration.md).
+It has not yet been validated in Unity/Xcode or on a physical iPhone. See
 [the Unity validation record](unity-relay-validation.md) for the HTTP 451 that
 blocked the previous provider.
 
@@ -91,11 +93,14 @@ The locally rebuilt Activity fixed that crash. The next on-device result was
 `EOS device identity: AuthWrongClient`. A direct request to Epic's official
 OAuth endpoint with the *same configuration embedded in the APK* returned
 HTTP 401 `errors.com.epicgames.common.oauth.invalid_client`. All four public
-product identifiers match the repository variables. Update the matching
-`EOS_CLIENT_ID` and `EOS_CLIENT_SECRET` before rebuilding. No room has yet
-been created by this game APK, and Internet racing has not been demonstrated.
-iOS EOS native-plugin integration is still pending; existing iOS artifacts
-are not evidence of EOS connectivity.
+product identifiers matched the repository variables. The recommendation at
+that time was to correct the matching client pair and rebuild. That tested APK
+had not created a room or demonstrated Internet racing.
+This credential failure is a historical result. A later Android [build
+38064831810](https://github.com/jin-wind/Initial-D-Arcade-Stage-3-Reimagined/actions/runs/38064831810)
+passed the credential-checking SDK staging step and built/verified the APK.
+The earlier 401 is not established as a current blocker. Existing iOS artifacts
+remain unrelated to the new opt-in EOS integration and are not evidence of EOS connectivity.
 
 ## Playing with the Android EOS APK
 

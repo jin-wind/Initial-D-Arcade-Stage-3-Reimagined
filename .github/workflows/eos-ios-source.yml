@@ -1,0 +1,79 @@
+name: Mobile EOS source checks
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, eos-internet, feature/ios-eos-crossplay]
+    paths:
+      - '.github/workflows/eos-ios-source.yml'
+      - 'Assets/Scripts/Multiplayer/*.cs'
+      - 'Assets/Scripts/Idas3PlatformPaths.cs'
+      - 'Assets/Scripts/Idas3CourseCatalog.cs'
+      - 'Assets/Editor/Idas3*IOSBuild.cs'
+      - 'Tools/prepare-eos-ios.py'
+      - 'Tools/Verify iOS App.py'
+      - 'Tests/Multiplayer/*eos*'
+      - 'Tests/Multiplayer/EosCompile*.cs'
+      - 'Tests/Multiplayer/SessionContract*.cs'
+      - 'Tests/Multiplayer/test_mobile_session_contract.py'
+  pull_request:
+    paths:
+      - '.github/workflows/eos-ios-source.yml'
+      - 'Assets/Scripts/Multiplayer/*.cs'
+      - 'Assets/Scripts/Idas3PlatformPaths.cs'
+      - 'Assets/Scripts/Idas3CourseCatalog.cs'
+      - 'Assets/Editor/Idas3*IOSBuild.cs'
+      - 'Tools/prepare-eos-ios.py'
+      - 'Tools/Verify iOS App.py'
+      - 'Tests/Multiplayer/*eos*'
+      - 'Tests/Multiplayer/EosCompile*.cs'
+      - 'Tests/Multiplayer/SessionContract*.cs'
+      - 'Tests/Multiplayer/test_mobile_session_contract.py'
+
+permissions:
+  contents: read
+
+jobs:
+  offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            Assets/Scripts
+            Assets/Editor
+            Tools
+            Tests/Multiplayer
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+      - name: Check staging and package rejection paths
+        run: python Tests/Multiplayer/test_eos_ios_build.py
+      - name: Stage pinned official iPhoneOS SDK without credentials
+        run: python Tools/prepare-eos-ios.py
+      - name: Compile Android and iOS managed sources against real SDK
+        run: |
+          python Tests/Multiplayer/test_eos_mobile_compile.py \
+            --sdk-source Assets/EOS_SDK --report-dir Verification/eos-managed
+      - name: Compile full session and check Android iOS wire contracts
+        run: |
+          python Tests/Multiplayer/test_mobile_session_contract.py \
+            --eos-compile-report Verification/eos-managed --report-dir Verification/session-contract
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: mobile-eos-source-checks-${{ github.sha }}
+          path: |
+            Verification/eos-managed/report.json
+            Verification/eos-managed/*-compile.log
+            Verification/eos-managed/*-probe.log
+            Verification/session-contract/report.json
+            Verification/session-contract/*.log
+          retention-days: 7
+          if-no-files-found: ignore
+# No Unity license, EOS credentials, Xcode, signing, rooms or relay calls.
+# Passing is only source/fixture evidence, not mobile integration validation.

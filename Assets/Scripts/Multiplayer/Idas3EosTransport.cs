@@ -1,4 +1,4 @@
-#if IDAS3_EOS && UNITY_ANDROID
+#if (IDAS3_EOS && UNITY_ANDROID) || (IDAS3_EOS_IOS && UNITY_IOS)
 using System;
 using System.Collections.Generic;
 using System.Security.Cryptography;

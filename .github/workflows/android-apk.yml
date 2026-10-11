@@ -12,7 +12,7 @@ on:
   workflow_call:
   workflow_dispatch:
   push:
-    branches: [android-ci, eos-internet]
+    branches: [android-ci, eos-internet, main]
     tags: ['android-v*']
 
 concurrency:
@@ -28,6 +28,8 @@ env:
 
 jobs:
   apk:
+    # main is a development branch; avoid a full APK on every small push.
+    if: github.event_name != 'push' || github.ref != 'refs/heads/main' || contains(github.event.head_commit.message, '[android-ci]')
     runs-on: ubuntu-latest
     timeout-minutes: 300
     steps:
@@ -46,6 +48,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 1
+          persist-credentials: false
 
       - name: Configure Unity Relay project
         env:

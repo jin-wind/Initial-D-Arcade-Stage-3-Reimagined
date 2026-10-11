@@ -1,0 +1,47 @@
+name: Headless multiplayer
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, feature/ios-eos-crossplay]
+    paths:
+      - 'Native/**'
+      - 'Tests/Multiplayer/**'
+      - '.github/workflows/headless-multiplayer.yml'
+  pull_request:
+    paths:
+      - 'Native/**'
+      - 'Tests/Multiplayer/**'
+      - '.github/workflows/headless-multiplayer.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  linux-core:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure portable native tests
+        run: cmake -S Native -B Native/build-headless -DCMAKE_BUILD_TYPE=Release -DCMAKE_RUNTIME_OUTPUT_DIRECTORY="${{ github.workspace }}/Native/build-headless/bin"
+      - name: Build headless test targets
+        run: cmake --build Native/build-headless --target headless_multiplayer_checks --parallel 2
+      - name: Check multiplayer contracts and numerical network matrix
+        run: ctest --test-dir Native/build-headless -R '^(native_multiplayer|online_race_timeline)$' --output-on-failure --timeout 900
+      - name: Check mobile target graph preservation (host-only)
+        run: python3 Tests/Multiplayer/test_native_target_graph.py --report-dir Verification/native-target-graph
+      - name: Check harness framing and failure cleanup
+        run: python3 -m unittest discover -s Tests/Multiplayer -p test_headless_peers_unit.py -v
+      - name: Check separate processes over loopback TCP
+        run: python3 Tests/Multiplayer/test_headless_peers.py --peer Native/build-headless/bin/headless_online_peer --root Native --output Verification/headless-multiplayer
+      - name: Keep test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: headless-multiplayer-linux
+          path: |
+            Verification/headless-multiplayer/
+            Verification/native-target-graph/
+            Native/build-headless/Testing/Temporary/
+          if-no-files-found: ignore

@@ -569,6 +569,42 @@ if(MSVC)
   target_compile_options(online_race_timeline_tests PRIVATE /W4 /fp:strict)
 endif()
 add_test(NAME online_race_timeline COMMAND online_race_timeline_tests "${CMAKE_SOURCE_DIR}")
+# Headless diagnostics run on desktop hosts only. Never add executable test
+# runners to an Android/Apple cross-build or change the mobile plugin closure.
+if(NOT ANDROID AND NOT APPLE AND NOT CMAKE_CROSSCOMPILING)
+  # Separate-process core peers for local loopback tests. This diagnostic target
+  # deliberately does not link the Unity renderer, Steam, saves, or result awards.
+  add_executable(headless_online_peer tools/headless_online_peer.cpp)
+  target_include_directories(headless_online_peer PRIVATE tests)
+  target_link_libraries(headless_online_peer PRIVATE idas3_original idas3_core)
+  if(MSVC)
+    target_compile_options(headless_online_peer PRIVATE /W4 /fp:strict)
+  else()
+    target_compile_options(headless_online_peer PRIVATE -Wall -Wextra -ffp-contract=off)
+  endif()
+  if(WIN32)
+    target_link_libraries(headless_online_peer PRIVATE ws2_32)
+  endif()
+  add_custom_target(headless_multiplayer_checks
+    DEPENDS online_race_timeline_tests native_multiplayer_tests headless_online_peer)
+  find_package(Python3 3.10 QUIET COMPONENTS Interpreter)
+  if(Python3_Interpreter_FOUND)
+    add_test(NAME headless_peer_harness
+      COMMAND "${Python3_EXECUTABLE}" -m unittest discover
+        -s "${CMAKE_SOURCE_DIR}/../Tests/Multiplayer" -p test_headless_peers_unit.py)
+    set_tests_properties(headless_peer_harness PROPERTIES TIMEOUT 30 LABELS "multiplayer;headless")
+    if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
+      add_test(NAME native_platform_target_graph
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/../Tests/Multiplayer/test_native_target_graph.py"
+          --cmake "${CMAKE_COMMAND}")
+      set_tests_properties(native_platform_target_graph PROPERTIES TIMEOUT 600 LABELS "multiplayer;headless;configure-only")
+    endif()
+    add_test(NAME headless_online_peers
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/../Tests/Multiplayer/test_headless_peers.py"
+        --peer "$<TARGET_FILE:headless_online_peer>" --root "${CMAKE_SOURCE_DIR}")
+    set_tests_properties(headless_online_peers PROPERTIES TIMEOUT 660 LABELS "multiplayer;headless")
+  endif()
+endif()
 add_executable(original_hud_tests tests/original_hud_tests.cpp src/original_hud.cpp)
 target_link_libraries(original_hud_tests PRIVATE idas3_original idas3_native_assets)
 add_test(NAME original_hud COMMAND original_hud_tests "${CMAKE_SOURCE_DIR}")
@@ -1015,7 +1051,11 @@ if(WIN32)
   endif()
 endif()
 
-include(unity_plugin.cmake)
+# Only supported player platforms include the Unity plugin. Apple has already
+# returned through its portable branch above; keep Android reachable here.
+if(WIN32 OR ANDROID OR APPLE)
+  include(unity_plugin.cmake)
+endif()
 add_executable(native_multiplayer_tests tests/native_multiplayer_tests.cpp)
 target_include_directories(native_multiplayer_tests PRIVATE src)
 add_test(NAME native_multiplayer COMMAND native_multiplayer_tests)

@@ -79,3 +79,8 @@ Tests/Updates/*-report.json
 /Assets/Plugins/macOS/*.dylib
 
 /Tools/Mac/*.command
+
+# Optional, locally staged EOS iPhoneOS SDK (never Simulator)
+/Assets/Plugins/iOS/EOSSDK.framework/
+/Assets/Plugins/iOS/EOSSDK.framework.meta
+/Assets/Plugins/iOS/Idas3EosBuild.json*

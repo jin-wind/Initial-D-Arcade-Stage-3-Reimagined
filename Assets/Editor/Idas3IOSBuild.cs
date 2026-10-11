@@ -25,6 +25,9 @@ public static class Idas3IOSBuild
     [MenuItem("Initial D/iOS/Export ARM64 Device Xcode Project")]
     public static void BuildDevice() => Build(false);
 
+    [MenuItem("Initial D/iOS/Export ARM64 Device Xcode Project with EOS")]
+    public static void BuildDeviceEos() => Build(false, true);
+
     public static void RunChecks()
     {
         Idas3TouchControlsTests.Run();
@@ -44,12 +47,19 @@ public static class Idas3IOSBuild
         BuildDevice();
     }
 
-    static void Build(bool simulator)
+    public static void BuildDeviceEosChecked()
+    {
+        RunChecks();
+        BuildDeviceEos();
+    }
+
+    static void Build(bool simulator, bool enableEos = false)
     {
         if (Application.platform != RuntimePlatform.OSXEditor)
             throw new InvalidOperationException("Export the iOS project on the remote Mac.");
         if (!BuildPipeline.IsBuildTargetSupported(BuildTargetGroup.iOS, BuildTarget.iOS))
             throw new InvalidOperationException("Install iOS Build Support for this exact Unity Editor version.");
+        Idas3EosIOSBuild.Validate(simulator, enableEos);
         string sdk = simulator ? "iphonesimulator" : "iphoneos";
         foreach (string path in new[] { Scene, Native, Manifest,
             "Assets/StreamingAssets/IDAS3/data.manifest.json",
@@ -117,19 +127,28 @@ public static class Idas3IOSBuild
         AssetDatabase.Refresh();
         AssetDatabase.SaveAssets();
         string output = Environment.GetEnvironmentVariable("IDAS3_IOS_OUTPUT");
-        if (string.IsNullOrWhiteSpace(output)) output = simulator ? "Builds/iOS-Simulator" : "Builds/iOS-Device";
+        if (string.IsNullOrWhiteSpace(output)) output = simulator ? "Builds/iOS-Simulator" :
+            enableEos ? "Builds/iOS-EOS-Device" : "Builds/iOS-Device";
+        // Reusing an export from another provider can leave old frameworks or
+        // metadata behind. EOS exports must have a clean, separate directory.
+        if (Directory.Exists(output) && (enableEos || File.Exists(Path.Combine(output, "Data/Raw/ios-eos-build-id.json"))) &&
+            Directory.GetFileSystemEntries(output).Length != 0)
+            throw new InvalidOperationException("Use an empty output directory when switching or rebuilding an EOS export.");
         Directory.CreateDirectory(output);
         BuildReport report;
         PlayerSettings.bundleVersion = numeric.Value;
+        Idas3EosIOSBuild.EnabledForExport = enableEos;
         try
         {
             report = BuildPipeline.BuildPlayer(new BuildPlayerOptions {
                 scenes = new[] { Scene }, locationPathName = output, target = BuildTarget.iOS,
-                options = simulator ? BuildOptions.Development : BuildOptions.None
+                options = simulator ? BuildOptions.Development : BuildOptions.None,
+                extraScriptingDefines = enableEos ? new[] { Idas3EosIOSBuild.Define } : Array.Empty<string>()
             });
         }
         finally
         {
+            Idas3EosIOSBuild.EnabledForExport = false;
             PlayerSettings.bundleVersion = label;
             AssetDatabase.SaveAssets();
         }
@@ -150,7 +169,9 @@ public static class Idas3IOSBuild
             // Excluding every package would disable Unity Transport's crypto
             // dependencies (and other platform-aware service plugins).
             if (path.StartsWith("Packages/com.unity.", StringComparison.Ordinal)) continue;
-            if (path.StartsWith("Assets/Plugins/iOS/", StringComparison.Ordinal))
+            if (Idas3EosIOSBuild.IsFramework(path))
+                Idas3EosIOSBuild.ExcludeAutomaticImport(importer);
+            else if (path.StartsWith("Assets/Plugins/iOS/", StringComparison.Ordinal))
                 Configure(importer, BuildTarget.iOS, "ARM64", false, "", "");
             else if (path.StartsWith("Assets/Plugins/macOS/", StringComparison.Ordinal))
                 Configure(importer, BuildTarget.StandaloneOSX, "ARM64", true, "OSX", "ARM64");
@@ -225,6 +246,7 @@ public sealed class Idas3IOSPostprocess : IPostprocessBuildWithReport
                 "rm -rf \"$dst\" && cp -cR \"$PROJECT_DIR/Data\" \"$dst\"\n");
             project.SetBuildProperty(main, "ENABLE_USER_SCRIPT_SANDBOXING", "NO");
         }
+        Idas3EosIOSBuild.Postprocess(project, output);
         project.WriteToFile(projectPath);
     }
 }

@@ -94,3 +94,23 @@ These use an in-memory database and do not submit scores or change the live serv
 The distributed game points at the community service. Building the game does not require deploying a backend.
 
 For a separate service, see `Leaderboard/README.md`. The checked-in Wrangler configuration uses a placeholder database ID. No production database credential, admin key, installation identity or private deployment settings are included.
+
+## Optional iPhoneOS EOS export
+
+The existing iOS offline/LAN and Simulator paths are retained. See
+[the iOS EOS guide](docs/ios-eos-integration.md) for the opt-in
+`Idas3IOSBuild.BuildDeviceEosChecked` export, pinned SDK staging, package checks
+and the remaining Unity/Xcode/physical-device validation. Simulator EOS is not
+supported by the pinned SDK. Source checks do not establish working crossplay.
+
+## Cloud-only multiplayer diagnostics
+
+[Headless multiplayer verification](docs/headless-multiplayer.md) runs the shared
+native simulation in two Linux/Windows processes. The mobile plugin paths are
+preserved; the diagnostic executables are omitted from Android/Apple cross-builds.
+These checks do not produce an APK/IPA or prove physical-device crossplay.
+
+Full compiled Android/iOS session contract checks and their explicit fake
+boundaries are documented in [the cloud validation report](docs/cloud-crossplay-validation.md).
+For a real unsigned iOS EOS device build without a local Mac, see
+[GitHub Actions setup and limits](docs/ios-eos-github-actions.md).
