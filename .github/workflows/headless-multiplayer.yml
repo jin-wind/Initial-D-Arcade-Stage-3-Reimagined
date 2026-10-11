@@ -39,9 +39,15 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: headless-multiplayer-linux
+          name: headless-multiplayer-linux-${{ github.sha }}-${{ github.run_attempt }}
+          # Mutation fixtures link to Native/data. Never upload their trees:
+          # the artifact action follows symlinks and would duplicate game data.
           path: |
-            Verification/headless-multiplayer/
-            Verification/native-target-graph/
-            Native/build-headless/Testing/Temporary/
+            Verification/headless-multiplayer/report.json
+            Verification/headless-multiplayer/*.log
+            Verification/native-target-graph/report.json
+            Verification/native-target-graph/*/configure.log
+            Verification/native-target-graph/mutation-*/*/configure.log
+            Native/build-headless/Testing/Temporary/*.log
+          retention-days: 7
           if-no-files-found: ignore

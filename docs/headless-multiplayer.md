@@ -89,6 +89,9 @@ through Direct LAN. Keep those checks separate from this headless core result.
 runs the numerical matrix and separate-process suite, and retains diagnostic
 reports on both success and failure. Adding the workflow locally does not run it
 on GitHub; it runs after an authorized push or manual dispatch.
+Artifacts retain only explicit JSON reports and test/configure logs for seven
+days. Mutation fixtures link to the native source and game data, so their full
+directories must not be uploaded.
 
 ## Mobile CMake regression boundary
 
