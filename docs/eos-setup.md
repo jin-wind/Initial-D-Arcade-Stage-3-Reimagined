@@ -1,9 +1,11 @@
 # EOS setup and validation
 
 EOS is the selected Internet transport provider as of 2026-10-08. Android
-builds staged with `Tools/prepare-eos-android.py` now use the EOS adapter for
-the game's INTERNET option. LAN remains available. Unstaged builds and the
-current iOS builds retain the previous Unity Relay adapter. See
+and iPhone builds staged with `Tools/prepare-eos-mobile.py` use the same EOS
+adapter for the game's INTERNET option. LAN remains available. Simulator builds
+explicitly report that EOS Internet play is unavailable in Simulator, and
+retain single-player and LAN. Unstaged builds retain the previous Unity Relay
+adapter. See
 [the Unity validation record](unity-relay-validation.md) for the HTTP 451 that
 blocked the previous provider.
 
@@ -21,10 +23,10 @@ Developer Portal > Product Settings, collect the following values:
 | `EOS_CLIENT_SECRET` | Repository secret | Client Secret |
 
 The fork's values have been saved. They are not committed to the repository.
-The Android APK workflow stages the official SDK and generates the ignored
-`Assets/Resources/Idas3EOS.json` from these settings before building. No secret
+The Android and iPhone workflows stage the official SDK and generate the ignored
+`Assets/Resources/Idas3EOS.json` from these same settings before building. No secret
 is committed to source or printed by the staging script. This is a game-client
-configuration shipped in the APK; the Peer2Peer policy remains essential.
+configuration shipped in the app; the Peer2Peer policy remains essential.
 
 The intended sign-in path is Connect Device ID, followed by Connect Login and
 CreateUser when necessary. This path does not require an Epic Account Services
@@ -106,8 +108,48 @@ not recur. Selecting Continue on both devices returned them to the same room;
 readying again started a rematch that also accepted driving input. Full-course
 and real-device testing are still pending. See
 [the validation record](eos-validation.md) for the exact builds and evidence.
-iOS EOS native-plugin integration is still pending; existing iOS artifacts
-are not evidence of EOS connectivity.
+iOS now uses the standard EOS initialization, with the existing shared Device ID,
+lobby, forced-relay, fragmentation and race transport code. The framework is
+configured for device-only loading and embedding in the main app. The package
+verifier rejects EOS-enabled iPhone artifacts if the framework is missing or
+targets the wrong Apple SDK. Compile/package results are recorded separately
+from runtime results in the validation record; no iOS EOS runtime result is
+available yet. A signed iPhone/iPad build may also be tested through Apple's
+"My Mac (Designed for iPad)" destination on Apple silicon; that is not an iOS
+Simulator and would not replace physical-device/carrier acceptance testing.
+
+## Building both mobile targets
+
+Pushes to `eos-internet` run `mobile-build.yml`: Android APK, iPhone unsigned
+IPA, and a separate Simulator app. The Android reusable workflow no longer
+also triggers independently for that branch, avoiding duplicate APK jobs.
+The Simulator job needs no EOS credentials and includes no device framework.
+
+For local builds, reuse the already downloaded 6.2.0 archive:
+
+```sh
+python3 Tools/prepare-eos-mobile.py --platform iphoneos --archive /path/to/com.playeveryware.eos-6.2.0.tgz
+bash Tools/build-native-ios.sh iphoneos
+# Then run Unity's Idas3IOSBuild.BuildDeviceChecked and Xcode for iphoneos.
+```
+
+Supply the five EOS settings above through the build environment. The archive
+hash is checked before extraction. `--package /path/to/extracted/package`
+reuses an extracted SDK, and `--compile-only` omits runtime credentials.
+The old `prepare-eos-android.py` command remains a compatibility entry point.
+
+Before launching Unity for a Simulator build, instead run:
+
+```sh
+python3 Tools/prepare-eos-mobile.py --platform iphonesimulator --compile-only
+bash Tools/build-native-ios.sh iphonesimulator
+```
+
+This removes only the generated EOS SDK/framework/configuration from that
+project and selects the unavailable Internet adapter. Stage `iphoneos` again
+before building a device app. Use separate project copies for simultaneous
+device and Simulator builds. Device signing/provisioning is still required
+to install the iPhone IPA.
 
 ## Playing with the Android EOS APK
 
@@ -119,8 +161,8 @@ and start the race through the existing game lobby.
 Room codes use capital letters and digits 2-9, excluding I and O. EOS performs
 Device ID sign-in automatically; players do not need Epic accounts. The
 transport forces relays and accepts game packets only from the other
-authenticated lobby member. This remains a test build until actual game
-sessions have been exercised; it is not yet a validated Android/iOS release.
+authenticated lobby member. Android emulator races and rematches have passed;
+physical mobile networks and iOS EOS gameplay remain unverified.
 
 ## Official references
 

@@ -45,7 +45,39 @@ def macho_platform(path):
     return platforms[0]
 
 
-def verify(app, sdk, expected_version=None):
+def verify_eos(app, sdk, required=False):
+    errors = []
+    marker = app / 'Data/Raw/idas3-eos-build.json'
+    binary = app / 'Frameworks/EOSSDK.framework/EOSSDK'
+    report = {"included": binary.is_file()}
+    if marker.exists():
+        settings = json.loads(marker.read_text())
+        report.update({k: settings.get(k) for k in ('platform', 'transport', 'sdkVersion')})
+        if settings.get('schema') != 'idas3-eos-build-v1' or settings.get('platform') != sdk:
+            errors.append('EOS build marker SDK/schema mismatch')
+        expected = 'eos' if sdk == 'iphoneos' else 'unavailable'
+        if settings.get('transport') != expected:
+            errors.append('EOS transport does not match the Apple build target')
+        required = required or settings.get('transport') == 'eos'
+    elif required:
+        errors.append('Missing EOS build marker')
+    if sdk == 'iphonesimulator' and binary.exists():
+        errors.append('Device-only EOS framework included in Simulator app')
+    if required and not binary.is_file():
+        errors.append('EOS framework was not embedded in the app')
+    if binary.is_file():
+        report['platform_id'] = macho_platform(binary)
+        report['sha256'] = digest(binary)
+        if report['platform_id'] != 2:
+            errors.append('EOS framework must target iPhoneOS ARM64')
+        with (binary.parent / 'Info.plist').open('rb') as stream:
+            framework = plistlib.load(stream)
+        if framework.get('CFBundleExecutable') != 'EOSSDK':
+            errors.append('Unexpected EOS framework executable')
+    return report, errors
+
+
+def verify(app, sdk, expected_version=None, require_eos=False):
     app = app.resolve(strict=True)
     report = {"app": str(app), "sdk": sdk, "errors": []}
     errors = report["errors"]
@@ -69,6 +101,8 @@ def verify(app, sdk, expected_version=None):
         if platform != expected_platform:
             errors.append(f"SDK mismatch: {binary.name} platform {platform}")
     raw = app / "Data/Raw"
+    report['eos'], eos_errors = verify_eos(app, sdk, require_eos)
+    errors.extend(eos_errors)
     report["game_version"] = (raw / "idas3-app-version.txt").read_text().strip()
     numeric = re.match(r"^\d+(?:\.\d+){0,2}", report["game_version"])
     build = re.search(r"(\d+)$", report["game_version"][numeric.end():]) if numeric else None
@@ -122,5 +156,6 @@ if __name__ == "__main__":
     parser.add_argument("app", type=Path)
     parser.add_argument("--sdk", choices=("iphoneos", "iphonesimulator"), required=True)
     parser.add_argument("--version", help="Full release label expected by Android peers")
+    parser.add_argument("--require-eos", action="store_true", help="Reject iPhone artifacts without the staged EOS framework")
     args = parser.parse_args()
-    raise SystemExit(0 if verify(args.app, args.sdk, args.version) else 1)
+    raise SystemExit(0 if verify(args.app, args.sdk, args.version, args.require_eos) else 1)

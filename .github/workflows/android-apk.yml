@@ -12,7 +12,7 @@ on:
   workflow_call:
   workflow_dispatch:
   push:
-    branches: [android-ci, eos-internet]
+    branches: [android-ci]
     tags: ['android-v*']
 
 concurrency:
@@ -61,7 +61,9 @@ jobs:
           EOS_DEPLOYMENT_ID: ${{ vars.EOS_DEPLOYMENT_ID }}
           EOS_CLIENT_ID: ${{ vars.EOS_CLIENT_ID }}
           EOS_CLIENT_SECRET: ${{ secrets.EOS_CLIENT_SECRET }}
-        run: python3 Tools/prepare-eos-android.py
+        run: |
+          python3 Tools/tests/test_eos_mobile.py
+          python3 Tools/prepare-eos-mobile.py --platform android
 
       # The ROM is supplied by each player on first launch; it must never be
       # built into a CI artifact.

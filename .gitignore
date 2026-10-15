@@ -51,6 +51,10 @@ identity.json
 /Assets/Plugins/Android/eos-sdk.aar*
 /Assets/Plugins/Android/EOS/
 /Assets/Plugins/Android/EOS.meta
+/Assets/Plugins/iOS/EOSSDK.framework/
+/Assets/Plugins/iOS/EOSSDK.framework.meta
+/Assets/StreamingAssets/idas3-eos-build.json
+/Assets/StreamingAssets/idas3-eos-build.json.meta
 /Assets/csc.rsp
 /Assets/csc.rsp.meta
 .env

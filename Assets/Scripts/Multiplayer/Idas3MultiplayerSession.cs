@@ -263,7 +263,7 @@ namespace Idas3.Multiplayer
                 case SteamTransport: return new Idas3SteamTransport();
                 case LanTransport: return new Idas3TcpTransport();
                 case InternetTransport:
-#if IDAS3_EOS && UNITY_ANDROID
+#if (IDAS3_EOS && (UNITY_ANDROID || UNITY_IOS)) || (IDAS3_EOS_IOS_SIMULATOR && UNITY_IOS)
                     return new Idas3EosTransport();
 #else
                     return new Idas3UnityRelayTransport();

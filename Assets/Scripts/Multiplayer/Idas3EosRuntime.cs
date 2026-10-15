@@ -1,4 +1,4 @@
-#if IDAS3_EOS && UNITY_ANDROID
+#if IDAS3_EOS && (UNITY_ANDROID || UNITY_IOS)
 using System;
 using System.IO;
 using System.Threading.Tasks;
@@ -27,7 +27,8 @@ namespace Idas3.Multiplayer
         internal static bool Configured
         {
             get {
-                if (Application.platform != RuntimePlatform.Android) return false;
+                if (Application.platform != RuntimePlatform.Android && Application.platform != RuntimePlatform.IPhonePlayer)
+                    return false;
                 var asset = Resources.Load<TextAsset>("Idas3EOS");
                 if (asset == null) return false;
                 try { return JsonUtility.FromJson<Config>(asset.text)?.Valid == true; }
@@ -48,6 +49,7 @@ namespace Idas3.Multiplayer
 
         void Initialize()
         {
+#if UNITY_ANDROID
             using (var bridge = new AndroidJavaClass("com.idas3.unity.Idas3Activity"))
                 if (!bridge.CallStatic<bool>("ensureEosLibraryLoaded"))
                     throw new InvalidOperationException("EOS Android library could not be loaded. Use a supported device and APK.");
@@ -62,6 +64,13 @@ namespace Idas3.Multiplayer
                     OptionalExternalDirectory = Application.temporaryCachePath
                 }
             };
+#else
+            // iOS uses the standard SDK initialization. The dynamic framework
+            // is embedded in the app by the iPhone build; no Android JNI runs.
+            var init = new InitializeOptions {
+                ProductName = "Initial D Reimagined", ProductVersion = "1.0"
+            };
+#endif
             Check(PlatformInterface.Initialize(ref init), "initialize");
             var config = JsonUtility.FromJson<Config>(Resources.Load<TextAsset>("Idas3EOS").text);
             string cache = Path.Combine(Application.persistentDataPath, "eos-cache");
@@ -91,7 +100,9 @@ namespace Idas3.Multiplayer
         async Task Login()
         {
             var connect = Platform.GetConnectInterface();
-            var device = new CreateDeviceIdOptions { DeviceModel = "IDAS3 Android" };
+            var device = new CreateDeviceIdOptions {
+                DeviceModel = Application.platform == RuntimePlatform.IPhonePlayer ? "IDAS3 iOS" : "IDAS3 Android"
+            };
             var made = await Callback<CreateDeviceIdCallbackInfo>(done => connect.CreateDeviceId(ref device, null,
                 (ref CreateDeviceIdCallbackInfo info) => done(info)));
             if (made.ResultCode != Result.DuplicateNotAllowed) Check(made.ResultCode, "device identity");

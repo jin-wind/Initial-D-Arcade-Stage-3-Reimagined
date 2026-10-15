@@ -1,4 +1,4 @@
-#if IDAS3_EOS && UNITY_ANDROID
+#if IDAS3_EOS && (UNITY_ANDROID || UNITY_IOS)
 using System;
 using System.Collections.Generic;
 using System.Security.Cryptography;
@@ -391,6 +391,40 @@ namespace Idas3.Multiplayer
             });
         }
         public void Dispose() { if (disposed) return; disposed = true; Available = false; Close(false); }
+    }
+}
+#elif IDAS3_EOS_IOS_SIMULATOR && UNITY_IOS
+using System;
+using System.Collections.Generic;
+
+namespace Idas3.Multiplayer
+{
+    // The official SDK has no Simulator binary. Keep Internet explicitly
+    // unavailable instead of sending players to a different relay provider.
+    public sealed class Idas3EosTransport : IIdas3Transport
+    {
+        public string Kind => "EOS Relay";
+        public bool Available => false;
+        public bool Connected => false;
+        public bool IsHost => false;
+        public string LocalId => "";
+        public string LocalName => "";
+        public string RemoteId => "";
+        public string RemoteName => "";
+        public string RoomCode => "";
+        public string Status => "EOS Internet play is unavailable in Simulator. Use the iPhone/iPad build, or choose LAN.";
+        public IReadOnlyList<Idas3Room> Rooms => Array.Empty<Idas3Room>();
+        public event Action<byte[]> Message { add { } remove { } }
+        public event Action PeerChanged { add { } remove { } }
+        public event Action<string> Error;
+        public bool Initialize() => false;
+        public void Browse() { }
+        public void Host(string roomName) => Error?.Invoke(Status);
+        public void Join(string roomCode) => Error?.Invoke(Status);
+        public void Send(byte[] data, bool reliable) { }
+        public void Poll() { }
+        public void Leave() { }
+        public void Dispose() { }
     }
 }
 #endif

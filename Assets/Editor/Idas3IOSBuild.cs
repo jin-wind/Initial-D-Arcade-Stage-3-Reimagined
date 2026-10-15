@@ -51,6 +51,16 @@ public static class Idas3IOSBuild
         if (!BuildPipeline.IsBuildTargetSupported(BuildTargetGroup.iOS, BuildTarget.iOS))
             throw new InvalidOperationException("Install iOS Build Support for this exact Unity Editor version.");
         string sdk = simulator ? "iphonesimulator" : "iphoneos";
+#if IDAS3_EOS
+        if (simulator)
+            throw new InvalidOperationException("Stage EOS for iphonesimulator before opening Unity. Its device framework cannot run in Simulator.");
+        foreach (string path in new[] { "Assets/Plugins/iOS/EOSSDK.framework/EOSSDK",
+            "Assets/Resources/Idas3EOS.json", "Assets/StreamingAssets/idas3-eos-build.json" })
+            if (!File.Exists(path)) throw new FileNotFoundException("Missing staged EOS iPhone input.", path);
+#elif IDAS3_EOS_IOS_SIMULATOR
+        if (!simulator)
+            throw new InvalidOperationException("Stage EOS for iphoneos before opening Unity to build an Internet-enabled iPhone app.");
+#endif
         foreach (string path in new[] { Scene, Native, Manifest,
             "Assets/StreamingAssets/IDAS3/data.manifest.json",
             "Assets/StreamingAssets/IDAS3/data/original_physics/fsca_table.bin" })
@@ -150,7 +160,15 @@ public static class Idas3IOSBuild
             // Excluding every package would disable Unity Transport's crypto
             // dependencies (and other platform-aware service plugins).
             if (path.StartsWith("Packages/com.unity.", StringComparison.Ordinal)) continue;
-            if (path.StartsWith("Assets/Plugins/iOS/", StringComparison.Ordinal))
+            if (path == "Assets/Plugins/iOS/EOSSDK.framework")
+            {
+                bool device = PlayerSettings.iOS.sdkVersion == iOSSdkVersion.DeviceSDK;
+                Configure(importer, BuildTarget.iOS, "ARM64", false, "", "");
+                importer.SetCompatibleWithPlatform(BuildTarget.iOS, device);
+                importer.SetPlatformData(BuildTarget.iOS, "AddToEmbeddedBinaries", "true");
+                importer.SaveAndReimport();
+            }
+            else if (path.StartsWith("Assets/Plugins/iOS/", StringComparison.Ordinal))
                 Configure(importer, BuildTarget.iOS, "ARM64", false, "", "");
             else if (path.StartsWith("Assets/Plugins/macOS/", StringComparison.Ordinal))
                 Configure(importer, BuildTarget.StandaloneOSX, "ARM64", true, "OSX", "ARM64");
@@ -216,6 +234,14 @@ public sealed class Idas3IOSPostprocess : IPostprocessBuildWithReport
         // every build, which this Mac's disk cannot spare. Clone it on APFS
         // instead; script sandboxing would otherwise hide Data from the phase.
         string main = project.GetUnityMainTargetGuid();
+#if IDAS3_EOS
+        // Match the SDK's iOS builder. The EOS framework's PluginImporter
+        // links it into UnityFramework and embeds/signs it in the main app.
+        project.AddFrameworkToProject(main, "SafariServices.framework", true);
+        project.AddFrameworkToProject(main, "AuthenticationServices.framework", true);
+        project.SetBuildProperty(main, "ENABLE_BITCODE", "NO");
+        project.SetBuildProperty(framework, "ENABLE_BITCODE", "NO");
+#endif
         string data = project.FindFileGuidByProjectPath("Data");
         if (!string.IsNullOrEmpty(data))
         {
