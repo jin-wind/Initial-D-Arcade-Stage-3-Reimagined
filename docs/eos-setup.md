@@ -60,7 +60,9 @@ input is stored in GitHub Secrets.
 4. Game integration: the Android adapter implements `IIdas3Transport`, retaining the
    game's compatibility handshake and rollback simulation. Validate payloads
    up to 4096 bytes with bounded fragmentation; EOS packets are limited to
-   1170 bytes. Runtime race validation is pending.
+   1170 bytes. The complete Android game APK has now passed emulator room,
+   relay, race-start and short driving tests in both host/client directions,
+   plus return-to-room and rematch tests.
 5. Mobile validation: Android and a physical iPhone must complete races and
    rematches using different networks. This check is pending.
 
@@ -91,9 +93,19 @@ The locally rebuilt Activity fixed that crash. The next on-device result was
 `EOS device identity: AuthWrongClient`. A direct request to Epic's official
 OAuth endpoint with the *same configuration embedded in the APK* returned
 HTTP 401 `errors.com.epicgames.common.oauth.invalid_client`. All four public
-product identifiers match the repository variables. Update the matching
-`EOS_CLIENT_ID` and `EOS_CLIENT_SECRET` before rebuilding. No room has yet
-been created by this game APK, and Internet racing has not been demonstrated.
+product identifiers matched the repository variables. After the owner corrected
+the client ID/secret pair, full CI build 37949703521 signed in, created/joined
+rooms, completed the game handshake and established EOS relayed connections
+between two Android emulators. No further credential update is currently needed.
+
+The subsequent observed failure was a missing start acknowledgement when starting
+the race. Build 38064831810 includes a longer start window and acknowledgement
+retries. On 2026-10-15 this exact APK started and drove successfully on both
+emulators, including after swapping host/client roles; the previous error did
+not recur. Selecting Continue on both devices returned them to the same room;
+readying again started a rematch that also accepted driving input. Full-course
+and real-device testing are still pending. See
+[the validation record](eos-validation.md) for the exact builds and evidence.
 iOS EOS native-plugin integration is still pending; existing iOS artifacts
 are not evidence of EOS connectivity.
 

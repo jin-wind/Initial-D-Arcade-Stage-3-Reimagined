@@ -111,8 +111,9 @@ for the same configuration read in memory from the APK. The client, product,
 sandbox and deployment IDs match current Actions variables. The secret/token
 were not printed or written to diagnostic files.
 
-The next required step is to update the matching EOS client credentials and
-rebuild. Room creation, joining and race traffic remain unverified in the game.
+At that point the next required step was to update the matching EOS client
+credentials and rebuild. Room creation, joining and race traffic had not yet
+been verified in the game.
 The earlier Windows probe success predates the currently failing configuration
 and does not override this Android runtime result. The local diagnostic APK is
 not the output of the subsequent full CI rebuild.
@@ -120,6 +121,83 @@ not the output of the subsequent full CI rebuild.
 The owner updated `EOS_CLIENT_SECRET` at 2026-10-09 14:50:51 UTC. The next
 [build 37947404601](https://github.com/jin-wind/Initial-D-Arcade-Stage-3-Reimagined/actions/runs/37947404601)
 read that update but still received HTTP 401 from Epic before compiling the
-APK. The current blocker is the matching client ID/secret pair, not an APK
+APK. That attempt was blocked by the matching client ID/secret pair, not an APK
 compilation error. Build 37945122078, which had staged the previous credentials,
 was cancelled to avoid producing another artifact with rejected credentials.
+
+## Android game rooms and race-start failure, 2026-10-10
+
+The subsequent credential correction was accepted in
+[run 37949703521](https://github.com/jin-wind/Initial-D-Arcade-Stage-3-Reimagined/actions/runs/37949703521),
+which built commit `02a05405a9fed1a7950ec9f27c86ef41df0266d1`. This complete CI
+APK was installed on both Android 15 emulators. Actual game logs confirmed
+Connect sign-in, room creation/joining and `RelayedConnection` on both sides.
+The game's compatibility handshake completed and both drivers could ready up.
+The credential error is therefore historical, not the current blocker.
+
+Starting the race failed: the host logged `Start acknowledgement was not
+received. Please reconnect and retry.`, and the guest logged `Connection to
+the other driver was lost.` Native race loading had already succeeded. The
+neutral finish and later offline selection menus do not establish a successful
+online race.
+
+Commit `56cf108a94b5e935d1ce4846fd8e54353c16218a` extends the scheduled start
+window and retries the start message while waiting for its acknowledgement.
+[Run 38064831810](https://github.com/jin-wind/Initial-D-Arcade-Stage-3-Reimagined/actions/runs/38064831810)
+built and verified its complete APK. On 2026-10-15 the manually downloaded
+artifact's SHA-256 matched the GitHub artifact digest:
+
+```text
+f7435a0954a64c61974d9f3c8025523625bf1a51ec8e142f6e4a01c3f23d07a2
+```
+
+The APK is 2,329,382,509 bytes. Its actual gameplay results are recorded below.
+
+## Android game driving, 2026-10-15
+
+Both Android 15 emulators were updated in place to the exact `56cf108a` CI APK,
+retaining their ROM, saves and extracted resources. Each game's startup verified
+all 17,965 runtime files (3,943,133,420 bytes). Initial concurrent streamed ADB
+installs failed while the emulator system services restarted. Sequential
+non-streaming installs succeeded. The emulator disk images were then copied
+from the shared mechanical disk to an SSD to resolve long filesystem waits;
+the original images were retained. These environment changes mean this run
+does not isolate the start-window patch from storage-performance effects.
+
+The installed ARM64 release game ran through Android's ARM translation layer
+on two x86-64 emulator images. Tests used the normal touchscreen ONLINE menu,
+INTERNET / EOS RELAY, room-code entry, Ready and Start Battle. No game binary,
+simulation checks or network protocol were replaced for these runtime tests.
+
+| Test | Result |
+| --- | --- |
+| Emulator A hosts; B joins, start at 07:35 UTC | Both signed in, completed the game handshake, reported `RelayedConnection`, started and drove |
+| Emulator B hosts; A joins, start at 07:43 UTC | Both joined, reported `RelayedConnection`, started and drove after swapping roles |
+| B hosts; A joins, start at 07:51 UTC | Let the race time out, selected Continue on both clients, and returned to the same room with both drivers and Ready reset |
+| Rematch in that room, start at 07:57 UTC | Both readied again, started and drove without recreating the room or restarting either game process |
+
+The first two races used AE86 cars on Akina downhill, dry/night, with boost and
+collisions enabled. Touchscreen throttle input moved both cars; screenshots showed the
+opponent in the main view or mirror and changing relative distances. Each of
+these races ran to the initial 70-second race time limit. The second run's
+captures also show the original Continue screen. Both rooms were subsequently cleaned
+up successfully (`destroy room: Success` / `leave room: Success`).
+
+The third race exercised the time-limit result and Continue flow. Touch input
+advanced the result screens and selected Yes on both devices. Captures at
+07:53 UTC show both drivers back in the same EOS room with Ready reset. After
+readying again, both entered the rematch and accepted throttle input. Captures
+about 58 seconds into the rematch show both cars past the starting straight,
+with the opponent visible and matching opposite-signed relative distances.
+Neither game process restarted between that room's two races.
+After the rematch's Continue timeout, the host logged `destroy room: Success`;
+270 ms later the guest logged `leave room: NotFound`. Both returned to course
+selection. The callback ordering is consistent with the room already being
+destroyed when the guest left; no race error was reported.
+
+None of these runs reported the previous start-acknowledgement timeout, a race
+disconnect or a desynchronization error. This is observation of the game's
+existing runtime checks, not an independently recorded per-frame hash trace.
+Neither car completed the entire course. Full course finishes, mobile-carrier
+connections, physical-device performance and iOS EOS crossplay remain untested.
+The emulators share one host/network, even though their traffic used EOS relays.
